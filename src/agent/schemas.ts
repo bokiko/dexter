@@ -25,22 +25,17 @@ export const EntitySchema = z.object({
     'other',
   ]).describe('The type of entity'),
   value: z.string()
-    .describe('The raw value from the query'),
-  normalized: z.string().optional()
-    .describe('Normalized form (e.g., "Bitcoin" → "bitcoin", "Apple" → "AAPL")'),
+    .describe('The raw value from the query. For crypto tokens, use CoinGecko ID (e.g., "bitcoin", "ethereum"). For stocks, use ticker (e.g., "AAPL").'),
 });
 
 /**
  * Schema for the Understanding phase output.
- * Now includes domain classification for routing.
  */
 export const UnderstandingSchema = z.object({
   intent: z.string()
     .describe('A clear statement of what the user wants to accomplish'),
   entities: z.array(EntitySchema)
     .describe('Key entities extracted from the query'),
-  domain: z.enum(['stocks', 'crypto', 'defi', 'mixed']).optional()
-    .describe('Primary domain of the query'),
 });
 
 export type UnderstandingOutput = z.infer<typeof UnderstandingSchema>;

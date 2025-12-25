@@ -126,8 +126,7 @@ Guidelines:
 
 Return a JSON object with:
 - intent: A clear statement of what the user wants
-- entities: Array of extracted entities with type, value, and normalized form
-- domain: "stocks" | "crypto" | "defi" | "mixed" - the primary domain of the query`;
+- entities: Array of extracted entities with type and value (use normalized IDs for value, e.g., "bitcoin" not "Bitcoin")`;
 
 export function getUnderstandSystemPrompt(): string {
   return UNDERSTAND_SYSTEM_PROMPT.replace('{current_date}', getCurrentDate());
