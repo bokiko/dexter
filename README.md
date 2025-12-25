@@ -1,139 +1,268 @@
-# Dexter 🤖
+# Dexter 🤖 - Crypto Enhanced Fork
 
-Dexter is an autonomous financial research agent that thinks, plans, and learns as it works. It performs analysis using task planning, self-reflection, and real-time market data. Think Claude Code, but built specifically for financial research.
+> **This is a fork of [virattt/dexter](https://github.com/virattt/dexter)** with added cryptocurrency and DeFi research capabilities.
 
-
-<img width="979" height="651" alt="Screenshot 2025-10-14 at 6 12 35 PM" src="https://github.com/user-attachments/assets/5a2859d4-53cf-4638-998a-15cef3c98038" />
-
-## Overview
-
-Dexter takes complex financial questions and turns them into clear, step-by-step research plans. It runs those tasks using live market data, checks its own work, and refines the results until it has a confident, data-backed answer.  
-
-**Key Capabilities:**
-- **Intelligent Task Planning**: Automatically decomposes complex queries into structured research steps
-- **Autonomous Execution**: Selects and executes the right tools to gather financial data
-- **Self-Validation**: Checks its own work and iterates until tasks are complete
-- **Real-Time Financial Data**: Access to income statements, balance sheets, and cash flow statements
-- **Safety Features**: Built-in loop detection and step limits to prevent runaway execution
-
+[![Original Author](https://img.shields.io/badge/Original%20Author-virattt-blue)](https://github.com/virattt)
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
 
-<img width="996" height="639" alt="Screenshot 2025-11-22 at 1 45 07 PM" src="https://github.com/user-attachments/assets/8915fd70-82c9-4775-bdf9-78d5baf28a8a" />
+---
 
+## 🍴 Fork Information
+
+| | |
+|---|---|
+| **Original Repository** | [github.com/virattt/dexter](https://github.com/virattt/dexter) |
+| **Original Author** | [@virattt](https://github.com/virattt) |
+| **This Fork** | [gitlab.com/bokiko/dexter](https://gitlab.com/bokiko/dexter) |
+| **Fork Author** | [@bokiko](https://gitlab.com/bokiko) |
+| **Fork Date** | December 2024 |
+
+---
+
+## ✨ What's New in This Fork
+
+This fork adds **comprehensive cryptocurrency and DeFi research** capabilities to the original Dexter financial research agent.
+
+### New Features Added
+
+| Category | Tools Added | API Used |
+|----------|-------------|----------|
+| **Crypto Market** | 12 tools | CoinGecko (FREE) |
+| **DeFi Analytics** | 8 tools | DeFiLlama (FREE) |
+| **AI Enhancements** | Crypto-aware prompts | - |
+
+### New Crypto Tools (No API Key Needed!)
+
+**Market Data (CoinGecko)**:
+- `search_crypto_tokens` - Search tokens by name/symbol
+- `get_trending_crypto` - Top 7 trending tokens (24h)
+- `get_crypto_token_info` - Full token details (price, market cap, supply)
+- `get_crypto_price` - Quick multi-token price check
+- `get_crypto_ohlc` - Candlestick chart data
+- `get_crypto_price_history` - Historical price data
+- `get_global_crypto_data` - Total market cap, BTC/ETH dominance
+- `get_top_crypto_coins` - Top coins by market cap
+- `get_crypto_fear_greed` - Fear & Greed Index (sentiment)
+- `get_crypto_categories` - Token sectors/categories
+- `get_crypto_by_sector` - Tokens in a specific sector
+- `get_crypto_exchanges` - Top exchanges by volume
+
+**DeFi Analytics (DeFiLlama)**:
+- `get_top_defi_protocols` - Top protocols by TVL
+- `get_defi_protocol_detail` - Detailed protocol info + history
+- `get_chain_tvl_data` - TVL by blockchain
+- `get_chain_tvl_trend` - Historical TVL for a chain
+- `get_defi_yields` - Best yield opportunities
+- `get_stablecoin_data` - Stablecoin market data
+- `get_dex_volume_data` - DEX trading volumes
+- `compare_defi_protocols` - Side-by-side comparison
+
+### AI Enhancements
+
+- Updated system prompts to understand crypto terminology
+- Added crypto entity extraction (tokens, protocols, chains, categories)
+- Enhanced planning for crypto/DeFi queries
+- Better answer generation for crypto data
+
+---
+
+## 📁 Files Changed/Added
+
+```
+src/tools/crypto/           # NEW - All crypto tools
+├── api.ts                  # CoinGecko + DeFiLlama API clients
+├── market.ts               # 12 crypto market tools
+├── defi.ts                 # 8 DeFi analytics tools
+└── index.ts                # Exports
+
+src/tools/index.ts          # MODIFIED - Added crypto tool imports
+src/agent/prompts.ts        # MODIFIED - Crypto-aware prompts
+src/agent/schemas.ts        # MODIFIED - Crypto entity types
+
+CRYPTO_ENHANCEMENTS.md      # NEW - Detailed enhancement docs
+SECURITY_REVIEW.md          # NEW - Security audit of original code
+```
+
+**Lines of code added:** ~1,600
+
+---
+
+## 🔧 Development Process
+
+This fork was developed with the following approach:
+
+1. **Security Review** - Audited original codebase for vulnerabilities
+2. **Architecture Analysis** - Studied existing tool patterns
+3. **API Selection** - Chose free APIs (CoinGecko, DeFiLlama) for accessibility
+4. **Tool Development** - Created 20 new tools following existing patterns
+5. **Prompt Engineering** - Enhanced AI understanding of crypto concepts
+6. **Schema Updates** - Extended entity extraction for crypto entities
+7. **Testing** - Verified all tools work with the agent
+
+### Design Decisions
+
+| Decision | Reasoning |
+|----------|-----------|
+| Free APIs only | Lower barrier to entry, no extra costs |
+| CoinGecko for market data | Most comprehensive free crypto API |
+| DeFiLlama for DeFi | Industry standard for TVL data |
+| No breaking changes | Maintains compatibility with original |
+| Conservative rate limiting | Respect API limits |
+
+---
+
+## 🚀 Installation
 
 ### Prerequisites
 
 - [Bun](https://bun.com) runtime (v1.0 or higher)
-- OpenAI API key (get [here](https://platform.openai.com/api-keys))
-- Financial Datasets API key (get [here](https://financialdatasets.ai))
-- Tavily API key (get [here](https://tavily.com)) - optional, for web search
+- OpenAI API key (or Anthropic/Google)
+- Financial Datasets API key (for stock data)
+- **No additional keys needed for crypto features!**
 
-#### Installing Bun
+### Quick Start
 
-If you don't have Bun installed, you can install it using curl:
-
-**macOS/Linux:**
 ```bash
-curl -fsSL https://bun.com/install | bash
-```
-
-**Windows:**
-```bash
-powershell -c "irm bun.sh/install.ps1|iex"
-```
-
-After installation, restart your terminal and verify Bun is installed:
-```bash
-bun --version
-```
-
-### Installing Dexter
-
-1. Clone the repository:
-```bash
-git clone https://github.com/virattt/dexter.git
+# Clone this fork
+git clone https://gitlab.com/bokiko/dexter.git
 cd dexter
-```
 
-2. Install dependencies with Bun:
-```bash
+# Install dependencies
 bun install
-```
 
-3. Set up your environment variables:
-```bash
-# Copy the example environment file (from parent directory)
-cp ../env.example .env
-
+# Set up environment
+cp env.example .env
 # Edit .env and add your API keys
-# OPENAI_API_KEY=your-openai-api-key
-# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
-# TAVILY_API_KEY=your-tavily-api-key
-```
 
-### Usage
-
-Run Dexter in interactive mode:
-```bash
+# Run
 bun start
 ```
 
-Or with watch mode for development:
-```bash
-bun dev
+### API Keys Required
+
+| Service | Required For | Cost |
+|---------|--------------|------|
+| OpenAI/Anthropic/Google | AI models | Paid |
+| Financial Datasets | Stock data | Free tier |
+| **CoinGecko** | Crypto data | **FREE** |
+| **DeFiLlama** | DeFi data | **FREE** |
+| Tavily | Web search | Optional |
+
+---
+
+## 💬 Example Queries
+
+### Original (Stocks)
+- "What was Apple's revenue growth over the last 4 quarters?"
+- "Compare Microsoft and Google's operating margins"
+- "Analyze Tesla's cash flow trends"
+
+### New (Crypto)
+- "What are the top trending cryptocurrencies?"
+- "Compare Bitcoin and Ethereum price performance"
+- "What's the current crypto Fear & Greed Index?"
+- "Show me the top 10 AI tokens by market cap"
+
+### New (DeFi)
+- "Which DeFi protocols have the highest TVL?"
+- "Compare Aave vs Compound vs MakerDAO"
+- "What are the best yield opportunities on Arbitrum?"
+- "How has Ethereum's TVL changed over 90 days?"
+
+### Mixed
+- "Compare Apple stock vs Bitcoin over the past year"
+- "Which has better returns: NVIDIA or Ethereum?"
+
+---
+
+## 🏗️ Architecture
+
+Original Dexter architecture (unchanged):
+
+```
+User Query
+    ↓
+[Understand Phase] → Extract intent & entities
+    ↓
+[Plan Phase] → Create task list
+    ↓
+[Execute Phase] → Run tools, gather data
+    ↓
+[Answer Phase] → Synthesize response
 ```
 
-### Example Queries
+**This fork adds:**
+- New entity types: `token`, `protocol`, `chain`, `category`
+- New tool category: `crypto/` with 20 tools
+- Enhanced prompts for crypto understanding
 
-Try asking Dexter questions like:
-- "What was Apple's revenue growth over the last 4 quarters?"
-- "Compare Microsoft and Google's operating margins for 2023"
-- "Analyze Tesla's cash flow trends over the past year"
-- "What is Amazon's debt-to-equity ratio based on recent financials?"
+---
 
-Dexter will automatically:
-1. Break down your question into research tasks
-2. Fetch the necessary financial data
-3. Perform calculations and analysis
-4. Provide a comprehensive, data-rich answer
+## 📊 Original vs Fork Comparison
 
-## Architecture
+| Feature | Original | This Fork |
+|---------|----------|-----------|
+| Stock Research | ✅ | ✅ |
+| SEC Filings | ✅ | ✅ |
+| Financial Metrics | ✅ | ✅ |
+| Basic Crypto Prices | ✅ | ✅ |
+| **Crypto Market Data** | ❌ | ✅ |
+| **Trending Tokens** | ❌ | ✅ |
+| **Fear & Greed Index** | ❌ | ✅ |
+| **DeFi TVL Data** | ❌ | ✅ |
+| **Yield Opportunities** | ❌ | ✅ |
+| **Protocol Comparison** | ❌ | ✅ |
+| **Stablecoin Data** | ❌ | ✅ |
+| **DEX Volumes** | ❌ | ✅ |
+| Extra API Keys Needed | - | **None** |
 
-Dexter uses a multi-agent architecture with specialized components:
+---
 
-- **Planning Agent**: Analyzes queries and creates structured task lists
-- **Action Agent**: Selects appropriate tools and executes research steps
-- **Validation Agent**: Verifies task completion and data sufficiency
-- **Answer Agent**: Synthesizes findings into comprehensive responses
+## 🔒 Security
 
-## Tech Stack
+This fork maintains the security standards of the original:
 
-- **Runtime**: [Bun](https://bun.sh)
-- **UI Framework**: [React](https://react.dev) + [Ink](https://github.com/vadimdemedes/ink) (terminal UI)
-- **LLM Integration**: [LangChain.js](https://js.langchain.com) with multi-provider support (OpenAI, Anthropic, Google)
-- **Schema Validation**: [Zod](https://zod.dev)
-- **Language**: TypeScript
+- ✅ No hardcoded credentials
+- ✅ API keys via environment variables
+- ✅ Input validation on all tools
+- ✅ HTTPS for all API requests
+- ✅ No data exfiltration
+- ✅ Security review completed (see `SECURITY_REVIEW.md`)
 
+---
 
-### Changing Models
+## 📝 Changelog
 
-Type `/model` in the CLI to switch between:
-- GPT 4.1 (OpenAI)
-- Claude Sonnet 4.5 (Anthropic)
-- Gemini 3 (Google)
+### v2.2.0-crypto (This Fork)
+- Added 12 crypto market tools (CoinGecko)
+- Added 8 DeFi analytics tools (DeFiLlama)
+- Enhanced prompts for crypto understanding
+- Added crypto entity extraction
+- Security review documentation
 
-## How to Contribute
+### v2.2.0 (Original)
+- Base version forked from
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+---
 
-**Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
+## 🙏 Credits
 
+- **Original Dexter** by [@virattt](https://github.com/virattt) - Amazing financial research agent
+- **CoinGecko** - Free crypto market data API
+- **DeFiLlama** - Free DeFi analytics API
+- **LangChain** - AI orchestration framework
 
-## License
+---
 
-This project is licensed under the MIT License.
+## 📄 License
 
+This project is licensed under the MIT License (same as original).
+
+---
+
+## 🔗 Links
+
+- [Original Repository](https://github.com/virattt/dexter)
+- [Original Author Twitter](https://twitter.com/virattt)
+- [CoinGecko API](https://www.coingecko.com/en/api)
+- [DeFiLlama API](https://defillama.com/docs/api)
