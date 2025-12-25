@@ -159,12 +159,20 @@ Current date: {current_date}
 ## Tool Selection Hints
 
 STOCKS: get_income_statements, get_balance_sheets, get_price_snapshot, get_financial_metrics
-CRYPTO PRICES: get_crypto_token_info, get_crypto_price, get_crypto_ohlc, get_crypto_price_history
+CRYPTO PRICES (PREFER THESE - FREE, NO API KEY):
+  - get_crypto_token_info: Full token details (price, market cap, supply, ATH)
+  - get_crypto_price: Quick price check for multiple tokens
+  - get_crypto_ohlc: Candlestick/OHLC data for charting
+  - get_crypto_price_history: Historical price data with summaries
+  - Use token IDs like "bitcoin", "ethereum", "solana" (NOT ticker format like BTC-USD)
 CRYPTO MARKET: get_trending_crypto, get_top_crypto_coins, get_global_crypto_data, get_crypto_fear_greed
 CRYPTO SECTORS: get_crypto_categories, get_crypto_by_sector
 DEFI: get_top_defi_protocols, get_defi_protocol_detail, get_chain_tvl_data, get_defi_yields
 DEX: get_dex_volume_data
 STABLECOINS: get_stablecoin_data
+
+NOTE: For crypto, prefer CoinGecko tools (get_crypto_*) over Financial Datasets (get_crypto_prices with ticker format).
+CoinGecko tools are FREE and use token IDs like "bitcoin", "ethereum", "solana".
 
 ## Examples
 
