@@ -22,7 +22,34 @@ import {
 } from './finance/index.js';
 import { tavilySearch } from './search/index.js';
 
+// Enhanced Crypto Tools (CoinGecko + DeFiLlama - no API key needed)
+import {
+  // Market Tools
+  searchCryptoTokens,
+  getTrendingCrypto,
+  getCryptoTokenInfo,
+  getCryptoPrice,
+  getCryptoOHLC,
+  getCryptoPriceHistory,
+  getGlobalCryptoData,
+  getTopCryptoCoins,
+  getCryptoFearGreed,
+  getCryptoCategories,
+  getCryptoBySector,
+  getCryptoExchanges,
+  // DeFi Tools
+  getTopDefiProtocols,
+  getDefiProtocolDetail,
+  getChainTVLData,
+  getChainTVLTrend,
+  getDefiYields,
+  getStablecoinData,
+  getDexVolumeData,
+  compareDefiProtocols,
+} from './crypto/index.js';
+
 export const TOOLS: StructuredToolInterface[] = [
+  // === Traditional Finance ===
   getIncomeStatements,
   getBalanceSheets,
   getCashFlowStatements,
@@ -33,19 +60,48 @@ export const TOOLS: StructuredToolInterface[] = [
   getFilings,
   getPriceSnapshot,
   getPrices,
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
   getFinancialMetricsSnapshot,
   getFinancialMetrics,
   getNews,
   getAnalystEstimates,
   getSegmentedRevenues,
   getInsiderTrades,
+  
+  // === Basic Crypto (Financial Datasets API) ===
+  getCryptoPriceSnapshot,
+  getCryptoPrices,
+  getCryptoTickers,
+  
+  // === Enhanced Crypto Market (CoinGecko - FREE) ===
+  searchCryptoTokens,
+  getTrendingCrypto,
+  getCryptoTokenInfo,
+  getCryptoPrice,
+  getCryptoOHLC,
+  getCryptoPriceHistory,
+  getGlobalCryptoData,
+  getTopCryptoCoins,
+  getCryptoFearGreed,
+  getCryptoCategories,
+  getCryptoBySector,
+  getCryptoExchanges,
+  
+  // === DeFi Analytics (DeFiLlama - FREE) ===
+  getTopDefiProtocols,
+  getDefiProtocolDetail,
+  getChainTVLData,
+  getChainTVLTrend,
+  getDefiYields,
+  getStablecoinData,
+  getDexVolumeData,
+  compareDefiProtocols,
+  
+  // === Web Search (optional) ===
   ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
 ];
 
 export {
+  // Traditional Finance
   getIncomeStatements,
   getBalanceSheets,
   getCashFlowStatements,
@@ -56,14 +112,38 @@ export {
   get8KFilingItems,
   getPriceSnapshot,
   getPrices,
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
   getFinancialMetricsSnapshot,
   getFinancialMetrics,
   getNews,
   getAnalystEstimates,
   getSegmentedRevenues,
   getInsiderTrades,
+  // Basic Crypto
+  getCryptoPriceSnapshot,
+  getCryptoPrices,
+  getCryptoTickers,
+  // Enhanced Crypto Market
+  searchCryptoTokens,
+  getTrendingCrypto,
+  getCryptoTokenInfo,
+  getCryptoPrice,
+  getCryptoOHLC,
+  getCryptoPriceHistory,
+  getGlobalCryptoData,
+  getTopCryptoCoins,
+  getCryptoFearGreed,
+  getCryptoCategories,
+  getCryptoBySector,
+  getCryptoExchanges,
+  // DeFi Analytics
+  getTopDefiProtocols,
+  getDefiProtocolDetail,
+  getChainTVLData,
+  getChainTVLTrend,
+  getDefiYields,
+  getStablecoinData,
+  getDexVolumeData,
+  compareDefiProtocols,
+  // Web Search
   tavilySearch,
 };

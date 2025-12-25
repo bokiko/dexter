@@ -6,22 +6,41 @@ import { z } from 'zod';
 
 /**
  * Schema for entity extraction.
+ * Extended to support both traditional finance and crypto entities.
  */
 export const EntitySchema = z.object({
-  type: z.enum(['ticker', 'date', 'metric', 'company', 'period', 'other'])
-    .describe('The type of entity'),
+  type: z.enum([
+    // Traditional finance
+    'ticker',      // Stock ticker (AAPL, MSFT)
+    'company',     // Company name
+    'date',        // Specific date
+    'period',      // Time period (Q1 2024, last year)
+    'metric',      // Financial metric (P/E, revenue)
+    // Crypto entities
+    'token',       // Crypto token (bitcoin, ethereum, solana)
+    'protocol',    // DeFi protocol (aave, uniswap, lido)
+    'chain',       // Blockchain (Ethereum, Solana, Arbitrum)
+    'category',    // Crypto category (DEX, lending, L2)
+    // Generic
+    'other',
+  ]).describe('The type of entity'),
   value: z.string()
     .describe('The raw value from the query'),
+  normalized: z.string().optional()
+    .describe('Normalized form (e.g., "Bitcoin" → "bitcoin", "Apple" → "AAPL")'),
 });
 
 /**
  * Schema for the Understanding phase output.
+ * Now includes domain classification for routing.
  */
 export const UnderstandingSchema = z.object({
   intent: z.string()
     .describe('A clear statement of what the user wants to accomplish'),
   entities: z.array(EntitySchema)
     .describe('Key entities extracted from the query'),
+  domain: z.enum(['stocks', 'crypto', 'defi', 'mixed']).optional()
+    .describe('Primary domain of the query'),
 });
 
 export type UnderstandingOutput = z.infer<typeof UnderstandingSchema>;
