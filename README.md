@@ -233,15 +233,19 @@ This fork maintains the security standards of the original:
 
 ## 📝 Changelog
 
-### v2.2.0-crypto (This Fork)
-- Added 12 crypto market tools (CoinGecko)
-- Added 8 DeFi analytics tools (DeFiLlama)
-- Enhanced prompts for crypto understanding
-- Added crypto entity extraction
-- Security review documentation
+### v3.0.0 (2024-12-25) - This Fork
+- **NEW**: 12 crypto market tools (CoinGecko - FREE)
+- **NEW**: 8 DeFi analytics tools (DeFiLlama - FREE)
+- **NEW**: Fear & Greed Index sentiment tracking
+- **ENHANCED**: AI prompts for crypto understanding
+- **ENHANCED**: Entity extraction for tokens, protocols, chains
+- **FIXED**: OpenAI structured output schema errors
+- **FIXED**: Tool selection to prefer free APIs
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 ### v2.2.0 (Original)
-- Base version forked from
+- Base version by [@virattt](https://github.com/virattt)
 
 ---
 
