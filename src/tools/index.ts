@@ -15,10 +15,9 @@ import {
   getNews,
   getAnalystEstimates,
   getSegmentedRevenues,
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
   getInsiderTrades,
+  // Note: Removed getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers
+  // These require Financial Datasets API key - use CoinGecko tools instead (FREE)
 } from './finance/index.js';
 import { tavilySearch } from './search/index.js';
 
@@ -49,7 +48,7 @@ import {
 } from './crypto/index.js';
 
 export const TOOLS: StructuredToolInterface[] = [
-  // === Traditional Finance ===
+  // === Traditional Finance (Financial Datasets API) ===
   getIncomeStatements,
   getBalanceSheets,
   getCashFlowStatements,
@@ -67,12 +66,7 @@ export const TOOLS: StructuredToolInterface[] = [
   getSegmentedRevenues,
   getInsiderTrades,
   
-  // === Basic Crypto (Financial Datasets API) ===
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  
-  // === Enhanced Crypto Market (CoinGecko - FREE) ===
+  // === Crypto Market (CoinGecko - FREE, no API key needed) ===
   searchCryptoTokens,
   getTrendingCrypto,
   getCryptoTokenInfo,
@@ -118,11 +112,7 @@ export {
   getAnalystEstimates,
   getSegmentedRevenues,
   getInsiderTrades,
-  // Basic Crypto
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  // Enhanced Crypto Market
+  // Crypto Market (CoinGecko - FREE)
   searchCryptoTokens,
   getTrendingCrypto,
   getCryptoTokenInfo,
