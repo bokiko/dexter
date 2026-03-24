@@ -79,7 +79,10 @@ export function useAgentExecution({
 
   const currentQueryRef = useRef<string | null>(null);
   const isProcessingRef = useRef(false);
-  
+  const agentRef = useRef<Agent | null>(null);
+  const agentModelRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // Track pending updates for race condition handling
   const pendingTaskUpdatesRef = useRef<PendingTaskUpdate[]>([]);
   const pendingToolCallUpdatesRef = useRef<PendingToolCallUpdate[]>([]);
@@ -351,10 +354,23 @@ export function useAgentExecution({
 
       const callbacks = createAgentCallbacks();
 
+      // Reuse agent instance when model hasn't changed (PERF-007)
+      if (!agentRef.current || agentModelRef.current !== model) {
+        agentRef.current = new Agent({ model });
+        agentModelRef.current = model;
+      }
+
+      // Create AbortController for this run (BUG-006)
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       try {
-        const agent = new Agent({ model, callbacks });
-        await agent.run(query, messageHistory);
+        await agentRef.current.run(query, messageHistory, { callbacks, signal: abortController.signal });
       } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') {
+          // Execution was cancelled — clean up silently
+          return;
+        }
         setCurrentTurn(null);
         currentQueryRef.current = null;
         throw e;
@@ -370,6 +386,8 @@ export function useAgentExecution({
    * Cancels the current execution.
    */
   const cancelExecution = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setCurrentTurn(null);
     setAnswerStream(null);
     isProcessingRef.current = false;

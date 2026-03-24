@@ -25,9 +25,9 @@ export function saveConfig(config: Config): boolean {
   try {
     const dir = dirname(SETTINGS_FILE);
     if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
     }
-    writeFileSync(SETTINGS_FILE, JSON.stringify(config, null, 2));
+    writeFileSync(SETTINGS_FILE, JSON.stringify(config, null, 2), { mode: 0o600 });
     return true;
   } catch {
     return false;
