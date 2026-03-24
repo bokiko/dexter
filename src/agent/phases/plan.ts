@@ -48,7 +48,7 @@ export class PlanPhase {
     const result = response as PlanOutput;
 
     // Map to Task type with taskType and dependencies
-    const tasks: Task[] = result.tasks.map(t => ({
+    const tasks: Task[] = result.tasks.map((t: PlanOutput['tasks'][number]) => ({
       id: t.id,
       description: t.description,
       status: 'pending' as const,

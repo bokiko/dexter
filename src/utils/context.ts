@@ -1,9 +1,8 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
+import { writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
 import { createHash } from 'crypto';
-import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
-import { CONTEXT_SELECTION_SYSTEM_PROMPT } from '../agent/prompts.js';
-import { SelectedContextsSchema } from '../agent/schemas.js';
+import { DEFAULT_MODEL } from '../model/llm.js';
 import type { ToolSummary } from '../agent/schemas.js';
 
 interface ContextPointer {
@@ -37,7 +36,34 @@ export class ToolContextManager {
     this.contextDir = contextDir;
     this.model = model;
     if (!existsSync(contextDir)) {
-      mkdirSync(contextDir, { recursive: true });
+      mkdirSync(contextDir, { recursive: true, mode: 0o700 });
+    }
+    this.cleanupOldContexts();
+  }
+
+  /**
+   * Deletes context files older than the given TTL (default: 24 hours).
+   * Called at startup to prevent unbounded disk growth.
+   */
+  cleanupOldContexts(ttlMs: number = 24 * 60 * 60 * 1000): void {
+    if (!existsSync(this.contextDir)) return;
+    const now = Date.now();
+    try {
+      const files = readdirSync(this.contextDir);
+      for (const file of files) {
+        if (!file.endsWith('.json')) continue;
+        const filepath = join(this.contextDir, file);
+        try {
+          const stat = statSync(filepath);
+          if (now - stat.mtimeMs > ttlMs) {
+            unlinkSync(filepath);
+          }
+        } catch {
+          // Ignore individual file errors
+        }
+      }
+    } catch {
+      // Ignore errors if directory cannot be read
     }
   }
 
@@ -116,13 +142,13 @@ export class ToolContextManager {
     return parts.join(' ');
   }
 
-  saveContext(
+  async saveContext(
     toolName: string,
     args: Record<string, unknown>,
     result: unknown,
     taskId?: number,
     queryId?: string
-  ): string {
+  ): Promise<string> {
     const filename = this.generateFilename(toolName, args);
     const filepath = join(this.contextDir, filename);
 
@@ -155,7 +181,7 @@ export class ToolContextManager {
       result: actualResult,
     };
 
-    writeFileSync(filepath, JSON.stringify(contextData, null, 2));
+    await writeFile(filepath, JSON.stringify(contextData, null, 2), { mode: 0o600 });
 
     const pointer: ContextPointer = {
       filepath,
@@ -177,15 +203,15 @@ export class ToolContextManager {
    * Saves context to disk and returns a lightweight ToolSummary for the agent loop.
    * Combines saveContext + deterministic summary generation in one call.
    */
-  saveAndGetSummary(
+  async saveAndGetSummary(
     toolName: string,
     args: Record<string, unknown>,
     result: unknown,
     queryId?: string
-  ): ToolSummary {
-    const filepath = this.saveContext(toolName, args, result, undefined, queryId);
+  ): Promise<ToolSummary> {
+    const filepath = await this.saveContext(toolName, args, result, undefined, queryId);
     const summary = this.getToolDescription(toolName, args);
-    
+
     return {
       id: filepath,
       toolName,
@@ -202,61 +228,20 @@ export class ToolContextManager {
     return this.pointers.filter(p => p.queryId === queryId);
   }
 
-  loadContexts(filepaths: string[]): ContextData[] {
-    const contexts: ContextData[] = [];
-    for (const filepath of filepaths) {
-      try {
-        const content = readFileSync(filepath, 'utf-8');
-        contexts.push(JSON.parse(content));
-      } catch (e) {
-        console.warn(`Warning: Failed to load context file ${filepath}: ${e}`);
-      }
-    }
-    return contexts;
+  async loadContexts(filepaths: string[]): Promise<ContextData[]> {
+    const results = await Promise.all(
+      filepaths.map(async (filepath) => {
+        try {
+          const content = await readFile(filepath, 'utf-8');
+          return JSON.parse(content) as ContextData;
+        } catch (e) {
+          console.warn(`Warning: Failed to load context file ${filepath}: ${e}`);
+          return null;
+        }
+      })
+    );
+    return results.filter((ctx): ctx is ContextData => ctx !== null);
   }
 
-  async selectRelevantContexts(
-    query: string,
-    availablePointers: ContextPointer[]
-  ): Promise<string[]> {
-    if (availablePointers.length === 0) {
-      return [];
-    }
-
-    const pointersInfo = availablePointers.map((ptr, i) => ({
-      id: i,
-      toolName: ptr.toolName,
-      toolDescription: ptr.toolDescription,
-      args: ptr.args,
-    }));
-
-    const prompt = `
-    Original user query: "${query}"
-    
-    Available tool outputs:
-    ${JSON.stringify(pointersInfo, null, 2)}
-    
-    Select which tool outputs are relevant for answering the query.
-    Return a JSON object with a "context_ids" field containing a list of IDs (0-indexed) of the relevant outputs.
-    Only select outputs that contain data directly relevant to answering the query.
-    `;
-
-    try {
-      const response = await callLlm(prompt, {
-        systemPrompt: CONTEXT_SELECTION_SYSTEM_PROMPT,
-        model: this.model,
-        outputSchema: SelectedContextsSchema,
-      });
-
-      const selectedIds = (response as { context_ids: number[] }).context_ids || [];
-
-      return selectedIds
-        .filter((idx) => idx >= 0 && idx < availablePointers.length)
-        .map((idx) => availablePointers[idx].filepath);
-    } catch (e) {
-      console.warn(`Warning: Context selection failed: ${e}, loading all contexts`);
-      return availablePointers.map((ptr) => ptr.filepath);
-    }
-  }
 }
 

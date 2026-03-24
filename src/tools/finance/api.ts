@@ -11,6 +11,9 @@ export async function callApi(
 ): Promise<ApiResponse> {
   // Read API key lazily at call time (after dotenv has loaded)
   const FINANCIAL_DATASETS_API_KEY = process.env.FINANCIAL_DATASETS_API_KEY;
+  if (!FINANCIAL_DATASETS_API_KEY) {
+    throw new Error('FINANCIAL_DATASETS_API_KEY is not set. Add it to your .env file to use finance tools.');
+  }
   const url = new URL(`${BASE_URL}${endpoint}`);
 
   // Add params to URL, handling arrays
@@ -26,7 +29,7 @@ export async function callApi(
 
   const response = await fetch(url.toString(), {
     headers: {
-      'x-api-key': FINANCIAL_DATASETS_API_KEY || '',
+      'x-api-key': FINANCIAL_DATASETS_API_KEY,
     },
   });
 

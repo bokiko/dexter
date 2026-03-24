@@ -66,9 +66,9 @@ export interface AgentOptions {
  */
 export class Agent {
   private readonly model: string;
-  private readonly callbacks: AgentCallbacks;
+  private callbacks: AgentCallbacks;
   private readonly contextManager: ToolContextManager;
-  
+
   private readonly understandPhase: UnderstandPhase;
   private readonly planPhase: PlanPhase;
   private readonly taskExecutor: TaskExecutor;
@@ -100,12 +100,18 @@ export class Agent {
   /**
    * Main entry point - runs the agent on a user query.
    */
-  async run(query: string, messageHistory?: MessageHistory): Promise<string> {
+  async run(query: string, messageHistory?: MessageHistory, options?: { callbacks?: AgentCallbacks; signal?: AbortSignal }): Promise<string> {
+    if (options?.callbacks) {
+      this.callbacks = options.callbacks;
+    }
+    const signal = options?.signal;
+
     const taskResults: Map<string, TaskResult> = new Map();
 
     // ========================================================================
     // Phase 1: Understand
     // ========================================================================
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     this.callbacks.onPhaseStart?.('understand');
     
     const understanding = await this.understandPhase.run({
@@ -119,6 +125,7 @@ export class Agent {
     // ========================================================================
     // Phase 2: Plan (with taskType and dependencies)
     // ========================================================================
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     this.callbacks.onPhaseStart?.('plan');
     
     const plan = await this.planPhase.run({
@@ -133,6 +140,7 @@ export class Agent {
     // Phase 3: Execute Tasks with Parallelization
     // Tool selection happens just-in-time during execution
     // ========================================================================
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     this.callbacks.onPhaseStart?.('execute');
 
     await this.taskExecutor.executeTasks(
@@ -148,6 +156,7 @@ export class Agent {
     // ========================================================================
     // Phase 4: Generate Final Answer
     // ========================================================================
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     return this.generateFinalAnswer(query, plan, taskResults);
   }
 
@@ -189,14 +198,28 @@ export class Agent {
     const systemPrompt = getFinalAnswerSystemPrompt();
     const userPrompt = buildFinalAnswerUserPrompt(query, taskOutputs, sourcesStr);
 
-    // Stream the answer
-    const stream = callLlmStream(userPrompt, {
+    // Stream the answer, collecting chunks to return as the final string
+    const rawStream = callLlmStream(userPrompt, {
       systemPrompt,
       model: this.model,
     });
 
-    this.callbacks.onAnswerStream?.(stream);
+    const chunks: string[] = [];
+    for await (const chunk of rawStream) {
+      chunks.push(chunk);
+    }
 
-    return '';
+    // Pass collected chunks as a buffered async generator to the callback
+    if (this.callbacks.onAnswerStream) {
+      const bufferedChunks = chunks;
+      const bufferedStream = async function* () {
+        for (const chunk of bufferedChunks) {
+          yield chunk;
+        }
+      };
+      this.callbacks.onAnswerStream(bufferedStream());
+    }
+
+    return chunks.join('');
   }
 }

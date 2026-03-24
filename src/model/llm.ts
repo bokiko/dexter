@@ -33,7 +33,7 @@ type ModelFactory = (name: string, opts: ModelOpts) => BaseChatModel;
 function getApiKey(envVar: string, providerName: string): string {
   const apiKey = process.env[envVar];
   if (!apiKey) {
-    throw new Error(`${envVar} not found in environment variables`);
+    throw new Error(`${envVar} not found. Please set your ${providerName} API key in .env`);
   }
   return apiKey;
 }
@@ -57,17 +57,23 @@ const DEFAULT_PROVIDER: ModelFactory = (name, opts) =>
   new ChatOpenAI({
     model: name,
     ...opts,
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: getApiKey('OPENAI_API_KEY', 'OpenAI'),
   });
+
+const modelCache = new Map<string, BaseChatModel>();
 
 export function getChatModel(
   modelName: string = DEFAULT_MODEL,
   streaming: boolean = false
 ): BaseChatModel {
+  const cacheKey = `${modelName}:${streaming}`;
+  if (modelCache.has(cacheKey)) return modelCache.get(cacheKey)!;
   const opts: ModelOpts = { streaming };
   const prefix = Object.keys(MODEL_PROVIDERS).find((p) => modelName.startsWith(p));
   const factory = prefix ? MODEL_PROVIDERS[prefix] : DEFAULT_PROVIDER;
-  return factory(modelName, opts);
+  const model = factory(modelName, opts);
+  modelCache.set(cacheKey, model);
+  return model;
 }
 
 interface CallLlmOptions {

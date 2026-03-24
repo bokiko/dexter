@@ -26,7 +26,7 @@ export type TaskType = 'use_tools' | 'reason';
 /**
  * Type of entity extracted from a query.
  */
-export type EntityType = 'ticker' | 'date' | 'metric' | 'company' | 'period' | 'other';
+export type EntityType = 'ticker' | 'date' | 'metric' | 'company' | 'period' | 'token' | 'protocol' | 'chain' | 'category' | 'other';
 
 /**
  * An entity extracted from the user's query.
