@@ -189,14 +189,28 @@ export class Agent {
     const systemPrompt = getFinalAnswerSystemPrompt();
     const userPrompt = buildFinalAnswerUserPrompt(query, taskOutputs, sourcesStr);
 
-    // Stream the answer
-    const stream = callLlmStream(userPrompt, {
+    // Stream the answer, collecting chunks to return as the final string
+    const rawStream = callLlmStream(userPrompt, {
       systemPrompt,
       model: this.model,
     });
 
-    this.callbacks.onAnswerStream?.(stream);
+    const chunks: string[] = [];
+    for await (const chunk of rawStream) {
+      chunks.push(chunk);
+    }
 
-    return '';
+    // Pass collected chunks as a buffered async generator to the callback
+    if (this.callbacks.onAnswerStream) {
+      const bufferedChunks = chunks;
+      const bufferedStream = async function* () {
+        for (const chunk of bufferedChunks) {
+          yield chunk;
+        }
+      };
+      this.callbacks.onAnswerStream(bufferedStream());
+    }
+
+    return chunks.join('');
   }
 }

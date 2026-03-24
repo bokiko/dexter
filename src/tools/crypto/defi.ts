@@ -201,7 +201,8 @@ export const getDefiYields = new DynamicStructuredTool({
     
     // Filter by TVL
     if (input.min_tvl) {
-      pools = pools.filter((p: any) => p.tvlUsd >= input.min_tvl);
+      const minTvl = input.min_tvl;
+      pools = pools.filter((p: any) => p.tvlUsd >= minTvl);
     }
     
     // Filter stablecoin only
