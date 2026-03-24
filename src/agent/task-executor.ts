@@ -79,7 +79,18 @@ export class TaskExecutor {
       const readyTasks = this.getReadyTasks(nodes);
       
       if (readyTasks.length === 0) {
-        break; // No tasks can proceed - might be a dependency cycle
+        // Dependency cycle: mark remaining pending tasks as failed
+        for (const node of nodes.values()) {
+          if (node.status === 'pending' || node.status === 'ready') {
+            taskResults.set(node.task.id, {
+              taskId: node.task.id,
+              output: `Task skipped: dependency cycle detected (task "${node.task.id}" dependencies could not be resolved)`,
+            });
+            node.status = 'completed';
+            callbacks?.onTaskUpdate?.(node.task.id, 'failed');
+          }
+        }
+        break;
       }
 
       await Promise.all(
@@ -176,7 +187,7 @@ export class TaskExecutor {
     }
 
     if (task.taskType === 'reason') {
-      const contextData = this.buildContextData(query, taskResults, plan);
+      const contextData = await this.buildContextData(query, taskResults, plan);
       
       const result = await this.executePhase.run({
         query,
@@ -188,17 +199,25 @@ export class TaskExecutor {
       taskResults.set(task.id, result);
       node.status = 'completed';
       callbacks?.onTaskUpdate?.(task.id, 'completed');
+    } else {
+      // Unknown or missing taskType — mark completed to prevent infinite loop
+      taskResults.set(task.id, {
+        taskId: task.id,
+        output: `Task skipped: unknown task type "${task.taskType}"`,
+      });
+      node.status = 'completed';
+      callbacks?.onTaskUpdate?.(task.id, 'failed');
     }
   }
 
   /**
    * Builds context data string from previous task results and context manager.
    */
-  private buildContextData(
+  private async buildContextData(
     query: string,
     taskResults: Map<string, TaskResult>,
     plan: Plan
-  ): string {
+  ): Promise<string> {
     const parts: string[] = [];
 
     for (const task of plan.tasks) {
@@ -212,7 +231,7 @@ export class TaskExecutor {
     const pointers = this.contextManager.getPointersForQuery(queryId);
     
     if (pointers.length > 0) {
-      const contexts = this.contextManager.loadContexts(pointers.map(p => p.filepath));
+      const contexts = await this.contextManager.loadContexts(pointers.map(p => p.filepath));
       
       for (const ctx of contexts) {
         const toolName = ctx.toolName || 'unknown';
@@ -223,7 +242,7 @@ export class TaskExecutor {
           ? `\nSource URLs: ${sourceUrls.join(', ')}` 
           : '';
         
-        parts.push(`Data from ${toolName} (${JSON.stringify(args)}):${sourceLine}\n${JSON.stringify(result, null, 2)}`);
+        parts.push(`Data from ${toolName} (${JSON.stringify(args)}):${sourceLine}\n${JSON.stringify(result)}`);
       }
     }
 

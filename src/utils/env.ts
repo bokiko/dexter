@@ -86,7 +86,7 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
       lines.push(`${apiKeyName}=${apiKeyValue}`);
     }
 
-    writeFileSync('.env', lines.join('\n'));
+    writeFileSync('.env', lines.join('\n'), { mode: 0o600 });
 
     // Reload environment variables
     config({ override: true, quiet: true });

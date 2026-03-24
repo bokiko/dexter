@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
+import { writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { callLlm, DEFAULT_MODEL } from '../model/llm.js';
@@ -116,13 +117,13 @@ export class ToolContextManager {
     return parts.join(' ');
   }
 
-  saveContext(
+  async saveContext(
     toolName: string,
     args: Record<string, unknown>,
     result: unknown,
     taskId?: number,
     queryId?: string
-  ): string {
+  ): Promise<string> {
     const filename = this.generateFilename(toolName, args);
     const filepath = join(this.contextDir, filename);
 
@@ -155,7 +156,7 @@ export class ToolContextManager {
       result: actualResult,
     };
 
-    writeFileSync(filepath, JSON.stringify(contextData, null, 2));
+    await writeFile(filepath, JSON.stringify(contextData, null, 2));
 
     const pointer: ContextPointer = {
       filepath,
@@ -177,15 +178,15 @@ export class ToolContextManager {
    * Saves context to disk and returns a lightweight ToolSummary for the agent loop.
    * Combines saveContext + deterministic summary generation in one call.
    */
-  saveAndGetSummary(
+  async saveAndGetSummary(
     toolName: string,
     args: Record<string, unknown>,
     result: unknown,
     queryId?: string
-  ): ToolSummary {
-    const filepath = this.saveContext(toolName, args, result, undefined, queryId);
+  ): Promise<ToolSummary> {
+    const filepath = await this.saveContext(toolName, args, result, undefined, queryId);
     const summary = this.getToolDescription(toolName, args);
-    
+
     return {
       id: filepath,
       toolName,
@@ -202,17 +203,19 @@ export class ToolContextManager {
     return this.pointers.filter(p => p.queryId === queryId);
   }
 
-  loadContexts(filepaths: string[]): ContextData[] {
-    const contexts: ContextData[] = [];
-    for (const filepath of filepaths) {
-      try {
-        const content = readFileSync(filepath, 'utf-8');
-        contexts.push(JSON.parse(content));
-      } catch (e) {
-        console.warn(`Warning: Failed to load context file ${filepath}: ${e}`);
-      }
-    }
-    return contexts;
+  async loadContexts(filepaths: string[]): Promise<ContextData[]> {
+    const results = await Promise.all(
+      filepaths.map(async (filepath) => {
+        try {
+          const content = await readFile(filepath, 'utf-8');
+          return JSON.parse(content) as ContextData;
+        } catch (e) {
+          console.warn(`Warning: Failed to load context file ${filepath}: ${e}`);
+          return null;
+        }
+      })
+    );
+    return results.filter((ctx): ctx is ContextData => ctx !== null);
   }
 
   async selectRelevantContexts(
