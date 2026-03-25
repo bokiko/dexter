@@ -146,14 +146,15 @@ export const getCryptoOHLC = new DynamicStructuredTool({
   }),
   func: async (input) => {
     const { data, url } = await getTokenOHLC(input.token_id, input.vs_currency, input.days);
+    if (!Array.isArray(data)) return formatToolResult({ error: 'Unexpected response format' }, [url]);
     // Format OHLC data: [timestamp, open, high, low, close]
-    const formatted = (data as any[])?.map((candle: number[]) => ({
+    const formatted = data.map((candle: number[]) => ({
       timestamp: new Date(candle[0]).toISOString(),
       open: candle[1],
       high: candle[2],
       low: candle[3],
       close: candle[4],
-    })) || [];
+    }));
     return formatToolResult({ ohlc: formatted, count: formatted.length }, [url]);
   },
 });
@@ -168,6 +169,7 @@ export const getCryptoPriceHistory = new DynamicStructuredTool({
   }),
   func: async (input) => {
     const { data, url } = await getTokenMarketChart(input.token_id, input.vs_currency, input.days);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return formatToolResult({ error: 'Unexpected response format' }, [url]);
     const d = data as any;
     // Summarize the data points
     const prices = d.prices || [];

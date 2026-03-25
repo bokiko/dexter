@@ -76,7 +76,7 @@ export class Agent {
   constructor(options: AgentOptions) {
     this.model = options.model;
     this.callbacks = options.callbacks ?? {};
-    this.contextManager = new ToolContextManager('.dexter/context', this.model);
+    this.contextManager = new ToolContextManager('.dexter/context');
 
     // Initialize phases
     this.understandPhase = new UnderstandPhase({ model: this.model });
