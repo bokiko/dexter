@@ -67,6 +67,9 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
           const key = stripped.split('=')[0].trim();
           if (key === apiKeyName) {
             const sanitized = apiKeyValue.replace(/[\r\n]/g, '');
+            if (!sanitized) {
+              throw new Error('API key cannot be empty');
+            }
             lines.push(`${apiKeyName}=${sanitized}`);
             keyUpdated = true;
           } else {
@@ -82,11 +85,17 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
           lines.push('');
         }
         const sanitized = apiKeyValue.replace(/[\r\n]/g, '');
+        if (!sanitized) {
+          throw new Error('API key cannot be empty');
+        }
         lines.push(`${apiKeyName}=${sanitized}`);
       }
     } else {
       lines.push('# LLM API Keys');
       const sanitized = apiKeyValue.replace(/[\r\n]/g, '');
+      if (!sanitized) {
+        throw new Error('API key cannot be empty');
+      }
       lines.push(`${apiKeyName}=${sanitized}`);
     }
 
