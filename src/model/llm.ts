@@ -6,7 +6,16 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { Runnable } from '@langchain/core/runnables';
 import { z } from 'zod';
-import { DEFAULT_SYSTEM_PROMPT } from '../agent/prompts.js';
+
+const DEFAULT_SYSTEM_PROMPT = `You are Dexter, an autonomous financial and crypto research agent.
+Your primary objective is to conduct deep and thorough research on stocks, companies, cryptocurrencies, and DeFi protocols to answer user queries.
+You are equipped with powerful tools for:
+- Traditional finance: stock prices, financial statements, SEC filings, analyst estimates
+- Crypto markets: token prices, market data, trending coins, fear & greed index
+- DeFi analytics: TVL data, protocol metrics, yield opportunities, DEX volumes
+
+You should be methodical, breaking down complex questions into manageable steps and using your tools strategically to find the answers.
+Always aim to provide accurate, comprehensive, and well-structured information to the user.`;
 
 export const DEFAULT_MODEL = 'gpt-5.2';
 
@@ -62,6 +71,16 @@ const DEFAULT_PROVIDER: ModelFactory = (name, opts) =>
 
 const modelCache = new Map<string, BaseChatModel>();
 
+// Cached prompt template — structure is always system+user, content injected at invoke time
+const cachedPromptTemplate = ChatPromptTemplate.fromMessages([
+  ['system', '{systemPrompt}'],
+  ['user', '{prompt}'],
+]);
+
+export function clearModelCache(): void {
+  modelCache.clear();
+}
+
 export function getChatModel(
   modelName: string = DEFAULT_MODEL,
   streaming: boolean = false
@@ -87,11 +106,6 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
   const { model = DEFAULT_MODEL, systemPrompt, outputSchema, tools } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
-  const promptTemplate = ChatPromptTemplate.fromMessages([
-    ['system', finalSystemPrompt],
-    ['user', '{prompt}'],
-  ]);
-
   const llm = getChatModel(model, false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,9 +117,9 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
     runnable = llm.bindTools(tools);
   }
 
-  const chain = promptTemplate.pipe(runnable);
+  const chain = cachedPromptTemplate.pipe(runnable);
 
-  const result = await withRetry(() => chain.invoke({ prompt }));
+  const result = await withRetry(() => chain.invoke({ prompt, systemPrompt: finalSystemPrompt }));
 
   // If no outputSchema and no tools, extract content from AIMessage
   // When tools are provided, return the full AIMessage to preserve tool_calls
@@ -122,26 +136,26 @@ export async function* callLlmStream(
   const { model = DEFAULT_MODEL, systemPrompt } = options;
   const finalSystemPrompt = systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
-  const promptTemplate = ChatPromptTemplate.fromMessages([
-    ['system', finalSystemPrompt],
-    ['user', '{prompt}'],
-  ]);
-
   const llm = getChatModel(model, true);
-  const chain = promptTemplate.pipe(llm);
+  const chain = cachedPromptTemplate.pipe(llm);
 
-  // For streaming, we handle retry at the connection level
+  // Buffer chunks before yielding to prevent partial output on retry
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const stream = await chain.stream({ prompt });
+      const stream = await chain.stream({ prompt, systemPrompt: finalSystemPrompt });
+      const buffer: string[] = [];
 
       for await (const chunk of stream) {
         if (chunk && typeof chunk === 'object' && 'content' in chunk) {
           const content = chunk.content;
           if (content && typeof content === 'string') {
-            yield content;
+            buffer.push(content);
           }
         }
+      }
+
+      for (const chunk of buffer) {
+        yield chunk;
       }
       return;
     } catch (e) {

@@ -3,8 +3,6 @@ import { TavilySearch } from '@langchain/tavily';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 
-const tavilyClient = process.env.TAVILY_API_KEY ? new TavilySearch({ maxResults: 5 }) : null;
-
 export const tavilySearch = new DynamicStructuredTool({
   name: 'search_web',
   description: 'Search the web for current information on any topic. Returns relevant search results with URLs and content snippets.',
@@ -12,10 +10,11 @@ export const tavilySearch = new DynamicStructuredTool({
     query: z.string().describe('The search query to look up on the web'),
   }),
   func: async (input) => {
-    if (!tavilyClient) {
+    if (!process.env.TAVILY_API_KEY) {
       throw new Error('TAVILY_API_KEY is not set. Add it to your .env file to use web search.');
     }
-    const result = await tavilyClient.invoke({ query: input.query });
+    const client = new TavilySearch({ maxResults: 5 });
+    const result = await client.invoke({ query: input.query });
     const parsed = typeof result === 'string' ? JSON.parse(result) : result;
     const urls = parsed.results
       ?.map((r: { url?: string }) => r.url)

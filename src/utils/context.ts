@@ -29,12 +29,11 @@ interface ContextData {
 
 export class ToolContextManager {
   private contextDir: string;
-  private model: string;
   public pointers: ContextPointer[] = [];
+  private contextCache = new Map<string, ContextData>();
 
-  constructor(contextDir: string = '.dexter/context', model: string = DEFAULT_MODEL) {
+  constructor(contextDir: string = '.dexter/context') {
     this.contextDir = contextDir;
-    this.model = model;
     if (!existsSync(contextDir)) {
       mkdirSync(contextDir, { recursive: true, mode: 0o700 });
     }
@@ -69,11 +68,11 @@ export class ToolContextManager {
 
   private hashArgs(args: Record<string, unknown>): string {
     const argsStr = JSON.stringify(args, Object.keys(args).sort());
-    return createHash('md5').update(argsStr).digest('hex').slice(0, 12);
+    return createHash('sha256').update(argsStr).digest('hex').slice(0, 16);
   }
 
   hashQuery(query: string): string {
-    return createHash('md5').update(query).digest('hex').slice(0, 12);
+    return createHash('sha256').update(query).digest('hex').slice(0, 16);
   }
 
   private generateFilename(toolName: string, args: Record<string, unknown>): string {

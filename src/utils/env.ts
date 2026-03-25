@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
+import { clearModelCache } from '../model/llm.js';
 
 // Load .env on module import
 config({ quiet: true });
@@ -65,7 +66,11 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
         } else if (stripped.includes('=')) {
           const key = stripped.split('=')[0].trim();
           if (key === apiKeyName) {
-            lines.push(`${apiKeyName}=${apiKeyValue}`);
+            const sanitized = apiKeyValue.replace(/[\r\n]/g, '');
+            if (!sanitized) {
+              throw new Error('API key cannot be empty');
+            }
+            lines.push(`${apiKeyName}=${sanitized}`);
             keyUpdated = true;
           } else {
             lines.push(line);
@@ -79,17 +84,26 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
         if (lines.length > 0 && !lines[lines.length - 1].endsWith('\n')) {
           lines.push('');
         }
-        lines.push(`${apiKeyName}=${apiKeyValue}`);
+        const sanitized = apiKeyValue.replace(/[\r\n]/g, '');
+        if (!sanitized) {
+          throw new Error('API key cannot be empty');
+        }
+        lines.push(`${apiKeyName}=${sanitized}`);
       }
     } else {
       lines.push('# LLM API Keys');
-      lines.push(`${apiKeyName}=${apiKeyValue}`);
+      const sanitized = apiKeyValue.replace(/[\r\n]/g, '');
+      if (!sanitized) {
+        throw new Error('API key cannot be empty');
+      }
+      lines.push(`${apiKeyName}=${sanitized}`);
     }
 
     writeFileSync('.env', lines.join('\n'), { mode: 0o600 });
 
-    // Reload environment variables
+    // Reload environment variables and clear cached model instances
     config({ override: true, quiet: true });
+    clearModelCache();
 
     return true;
   } catch (e) {
@@ -104,24 +118,69 @@ export async function promptForApiKey(apiKeyName: string): Promise<string | null
   console.log(`\n${providerName} API key is required to continue.`);
   console.log(`Please enter your ${apiKeyName}:`);
 
-  // Use readline for input
-  const readline = await import('readline');
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
+  // Use raw mode to suppress echo of the API key (security: prevent terminal scrollback capture)
   return new Promise((resolve) => {
-    rl.question('> ', (answer) => {
-      rl.close();
-      const apiKey = answer.trim();
-      if (!apiKey) {
-        console.log('No API key entered. Cancelled.');
+    // Fall back to non-masked readline if stdin is not a TTY (e.g., piped input)
+    if (!process.stdin.isTTY) {
+      process.stdout.write('> ');
+      let data = '';
+      process.stdin.setEncoding('utf-8');
+      process.stdin.once('data', (chunk) => {
+        data += chunk;
+        const apiKey = data.split('\n')[0].trim();
+        process.stdout.write('\n');
+        if (!apiKey) {
+          console.log('No API key entered. Cancelled.');
+          resolve(null);
+        } else {
+          resolve(apiKey);
+        }
+      });
+      return;
+    }
+
+    process.stdout.write('> ');
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf-8');
+
+    let apiKey = '';
+
+    const onData = (char: string) => {
+      if (char === '\r' || char === '\n') {
+        // Enter key: finish input
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+        process.stdin.removeListener('data', onData);
+        process.stdout.write('\n');
+        const trimmed = apiKey.trim();
+        if (!trimmed) {
+          console.log('No API key entered. Cancelled.');
+          resolve(null);
+        } else {
+          resolve(trimmed);
+        }
+      } else if (char === '\u0003') {
+        // Ctrl+C: cancel
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+        process.stdin.removeListener('data', onData);
+        process.stdout.write('\n');
+        console.log('Cancelled.');
         resolve(null);
+      } else if (char === '\u007f' || char === '\b') {
+        // Backspace
+        if (apiKey.length > 0) {
+          apiKey = apiKey.slice(0, -1);
+          process.stdout.write('\b \b');
+        }
       } else {
-        resolve(apiKey);
+        apiKey += char;
+        process.stdout.write('*');
       }
-    });
+    };
+
+    process.stdin.on('data', onData);
   });
 }
 

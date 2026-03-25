@@ -38,7 +38,7 @@ export class MessageHistory {
    * Hashes a query string for cache key generation
    */
   private hashQuery(query: string): string {
-    return createHash('md5').update(query).digest('hex').slice(0, 12);
+    return createHash('sha256').update(query).digest('hex').slice(0, 16);
   }
 
   /**

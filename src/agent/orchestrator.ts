@@ -76,7 +76,7 @@ export class Agent {
   constructor(options: AgentOptions) {
     this.model = options.model;
     this.callbacks = options.callbacks ?? {};
-    this.contextManager = new ToolContextManager('.dexter/context', this.model);
+    this.contextManager = new ToolContextManager('.dexter/context');
 
     // Initialize phases
     this.understandPhase = new UnderstandPhase({ model: this.model });
@@ -101,9 +101,7 @@ export class Agent {
    * Main entry point - runs the agent on a user query.
    */
   async run(query: string, messageHistory?: MessageHistory, options?: { callbacks?: AgentCallbacks; signal?: AbortSignal }): Promise<string> {
-    if (options?.callbacks) {
-      this.callbacks = options.callbacks;
-    }
+    const callbacks: AgentCallbacks = options?.callbacks ?? this.callbacks;
     const signal = options?.signal;
 
     const taskResults: Map<string, TaskResult> = new Map();
@@ -112,52 +110,52 @@ export class Agent {
     // Phase 1: Understand
     // ========================================================================
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    this.callbacks.onPhaseStart?.('understand');
-    
+    callbacks.onPhaseStart?.('understand');
+
     const understanding = await this.understandPhase.run({
       query,
       conversationHistory: messageHistory,
     });
-    
-    this.callbacks.onUnderstandingComplete?.(understanding);
-    this.callbacks.onPhaseComplete?.('understand');
+
+    callbacks.onUnderstandingComplete?.(understanding);
+    callbacks.onPhaseComplete?.('understand');
 
     // ========================================================================
     // Phase 2: Plan (with taskType and dependencies)
     // ========================================================================
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    this.callbacks.onPhaseStart?.('plan');
-    
+    callbacks.onPhaseStart?.('plan');
+
     const plan = await this.planPhase.run({
       query,
       understanding,
     });
-    
-    this.callbacks.onPlanCreated?.(plan);
-    this.callbacks.onPhaseComplete?.('plan');
+
+    callbacks.onPlanCreated?.(plan);
+    callbacks.onPhaseComplete?.('plan');
 
     // ========================================================================
     // Phase 3: Execute Tasks with Parallelization
     // Tool selection happens just-in-time during execution
     // ========================================================================
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    this.callbacks.onPhaseStart?.('execute');
+    callbacks.onPhaseStart?.('execute');
 
     await this.taskExecutor.executeTasks(
       query,
       plan,
       understanding,
       taskResults,
-      this.callbacks
+      callbacks
     );
 
-    this.callbacks.onPhaseComplete?.('execute');
+    callbacks.onPhaseComplete?.('execute');
 
     // ========================================================================
     // Phase 4: Generate Final Answer
     // ========================================================================
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    return this.generateFinalAnswer(query, plan, taskResults);
+    return this.generateFinalAnswer(query, plan, taskResults, callbacks);
   }
 
   /**
@@ -166,9 +164,10 @@ export class Agent {
   private async generateFinalAnswer(
     query: string,
     plan: Plan,
-    taskResults: Map<string, TaskResult>
+    taskResults: Map<string, TaskResult>,
+    callbacks: AgentCallbacks
   ): Promise<string> {
-    this.callbacks.onAnswerStart?.();
+    callbacks.onAnswerStart?.();
 
     // Format task outputs
     const taskOutputs = plan.tasks
@@ -198,26 +197,45 @@ export class Agent {
     const systemPrompt = getFinalAnswerSystemPrompt();
     const userPrompt = buildFinalAnswerUserPrompt(query, taskOutputs, sourcesStr);
 
-    // Stream the answer, collecting chunks to return as the final string
+    // Stream the answer in real-time to the callback while collecting for return value
     const rawStream = callLlmStream(userPrompt, {
       systemPrompt,
       model: this.model,
     });
 
     const chunks: string[] = [];
-    for await (const chunk of rawStream) {
-      chunks.push(chunk);
-    }
 
-    // Pass collected chunks as a buffered async generator to the callback
-    if (this.callbacks.onAnswerStream) {
-      const bufferedChunks = chunks;
-      const bufferedStream = async function* () {
-        for (const chunk of bufferedChunks) {
-          yield chunk;
+    if (callbacks.onAnswerStream) {
+      // Broadcast chunks to the callback in real-time using an async queue
+      const pending: string[] = [];
+      let streamDone = false;
+      const notifiers: Array<() => void> = [];
+
+      const callbackStream = async function* () {
+        while (true) {
+          if (pending.length > 0) {
+            yield pending.shift()!;
+          } else if (streamDone) {
+            break;
+          } else {
+            await new Promise<void>((r) => { notifiers.push(r); });
+          }
         }
       };
-      this.callbacks.onAnswerStream(bufferedStream());
+
+      callbacks.onAnswerStream(callbackStream());
+
+      for await (const chunk of rawStream) {
+        chunks.push(chunk);
+        pending.push(chunk);
+        notifiers.splice(0).forEach((fn) => fn());
+      }
+      streamDone = true;
+      notifiers.splice(0).forEach((fn) => fn());
+    } else {
+      for await (const chunk of rawStream) {
+        chunks.push(chunk);
+      }
     }
 
     return chunks.join('');

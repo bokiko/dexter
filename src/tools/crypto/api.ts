@@ -11,15 +11,49 @@ export interface ApiResponse<T = unknown> {
   url: string;
 }
 
+// Simple rate limiter: max 5 concurrent requests, 200ms minimum gap between starts
+const MAX_CONCURRENT = 5;
+let activeRequests = 0;
+let lastRequestTime = 0;
+const waitQueue: Array<() => void> = [];
+
+function processQueue() {
+  while (waitQueue.length > 0 && activeRequests < MAX_CONCURRENT) {
+    const next = waitQueue.shift()!;
+    next();
+  }
+}
+
+async function acquireSlot(): Promise<void> {
+  const gap = 200 - (Date.now() - lastRequestTime);
+  if (gap > 0) await new Promise((r) => setTimeout(r, gap));
+  if (activeRequests >= MAX_CONCURRENT) {
+    await new Promise<void>((r) => waitQueue.push(r));
+  }
+  activeRequests++;
+  lastRequestTime = Date.now();
+}
+
+function releaseSlot() {
+  activeRequests--;
+  processQueue();
+}
+
 /**
  * Generic fetch helper with error handling
  */
 async function fetchJson<T>(url: string): Promise<ApiResponse<T>> {
-  const response = await fetch(url, {
+  await acquireSlot();
+  let response: Response;
+  try {
+    response = await fetch(url, {
     headers: {
       'Accept': 'application/json',
     },
   });
+  } finally {
+    releaseSlot();
+  }
 
   if (!response.ok) {
     if (response.status === 429) {
@@ -199,12 +233,27 @@ export async function getFearGreedIndex(): Promise<ApiResponse> {
 // DeFiLlama API Functions (for TVL and DeFi data)
 // ============================================================================
 
+// In-memory cache for large DeFiLlama responses (5-minute TTL)
+const CACHE_TTL_MS = 5 * 60 * 1000;
+interface CacheEntry<T> { data: ApiResponse<T>; expiresAt: number }
+const responseCache = new Map<string, CacheEntry<unknown>>();
+
+async function fetchJsonCached<T>(url: string): Promise<ApiResponse<T>> {
+  const cached = responseCache.get(url);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data as ApiResponse<T>;
+  }
+  const result = await fetchJson<T>(url);
+  responseCache.set(url, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
+  return result;
+}
+
 /**
  * Get all DeFi protocols with TVL
  */
 export async function getDefiProtocols(): Promise<ApiResponse> {
   const url = `${DEFILLAMA_BASE}/protocols`;
-  return fetchJson(url);
+  return fetchJsonCached(url);
 }
 
 /**
@@ -236,7 +285,7 @@ export async function getChainTVLHistory(chain: string): Promise<ApiResponse> {
  */
 export async function getYieldPools(): Promise<ApiResponse> {
   const url = `${DEFILLAMA_BASE}/pools`;
-  return fetchJson(url);
+  return fetchJsonCached(url);
 }
 
 /**

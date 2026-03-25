@@ -57,9 +57,9 @@ export const getTopDefiProtocols = new DynamicStructuredTool({
       name: p.name,
       symbol: p.symbol,
       tvl: p.tvl,
-      tvl_change_1d: p.change_1d?.toFixed(2) + '%',
-      tvl_change_7d: p.change_7d?.toFixed(2) + '%',
-      tvl_change_1m: p.change_1m?.toFixed(2) + '%',
+      tvl_change_1d: p.change_1d != null ? p.change_1d.toFixed(2) + '%' : 'N/A',
+      tvl_change_7d: p.change_7d != null ? p.change_7d.toFixed(2) + '%' : 'N/A',
+      tvl_change_1m: p.change_1m != null ? p.change_1m.toFixed(2) + '%' : 'N/A',
       category: p.category,
       chains: p.chains?.slice(0, 5),
       slug: p.slug,
@@ -83,9 +83,13 @@ export const getDefiProtocolDetail = new DynamicStructuredTool({
     const chainTvls: Record<string, number> = {};
     if (d.chainTvls) {
       for (const [chain, tvlData] of Object.entries(d.chainTvls)) {
-        if (Array.isArray(tvlData)) {
-          const latest = tvlData[tvlData.length - 1];
+        if (tvlData && typeof tvlData === 'object' && 'tvl' in tvlData && Array.isArray((tvlData as any).tvl)) {
+          const arr = (tvlData as any).tvl;
+          const latest = arr[arr.length - 1];
           chainTvls[chain] = latest?.totalLiquidityUSD || 0;
+        } else if (Array.isArray(tvlData)) {
+          const latest = tvlData[tvlData.length - 1];
+          chainTvls[chain] = (latest as any)?.totalLiquidityUSD || 0;
         }
       }
     }
@@ -221,9 +225,9 @@ export const getDefiYields = new DynamicStructuredTool({
       project: p.project,
       chain: p.chain,
       tvl_usd: p.tvlUsd,
-      apy: p.apy?.toFixed(2) + '%',
-      apy_base: p.apyBase?.toFixed(2) + '%',
-      apy_reward: p.apyReward?.toFixed(2) + '%',
+      apy: p.apy != null ? p.apy.toFixed(2) + '%' : 'N/A',
+      apy_base: p.apyBase != null ? p.apyBase.toFixed(2) + '%' : 'N/A',
+      apy_reward: p.apyReward != null ? p.apyReward.toFixed(2) + '%' : 'N/A',
       stablecoin: p.stablecoin,
       il_risk: p.ilRisk,
     }));
@@ -279,7 +283,7 @@ export const getDexVolumeData = new DynamicStructuredTool({
         volume_24h: p.total24h,
         volume_7d: p.total7d,
         volume_30d: p.total30d,
-        change_24h: p.change_1d?.toFixed(2) + '%',
+        change_24h: p.change_1d != null ? p.change_1d.toFixed(2) + '%' : 'N/A',
         chains: p.chains?.slice(0, 5),
       }));
     
