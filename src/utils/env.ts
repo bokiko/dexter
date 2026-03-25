@@ -65,7 +65,8 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
         } else if (stripped.includes('=')) {
           const key = stripped.split('=')[0].trim();
           if (key === apiKeyName) {
-            lines.push(`${apiKeyName}=${apiKeyValue}`);
+            const sanitized = apiKeyValue.replace(/[\r\n]/g, '');
+            lines.push(`${apiKeyName}=${sanitized}`);
             keyUpdated = true;
           } else {
             lines.push(line);
@@ -79,11 +80,13 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
         if (lines.length > 0 && !lines[lines.length - 1].endsWith('\n')) {
           lines.push('');
         }
-        lines.push(`${apiKeyName}=${apiKeyValue}`);
+        const sanitized = apiKeyValue.replace(/[\r\n]/g, '');
+        lines.push(`${apiKeyName}=${sanitized}`);
       }
     } else {
       lines.push('# LLM API Keys');
-      lines.push(`${apiKeyName}=${apiKeyValue}`);
+      const sanitized = apiKeyValue.replace(/[\r\n]/g, '');
+      lines.push(`${apiKeyName}=${sanitized}`);
     }
 
     writeFileSync('.env', lines.join('\n'), { mode: 0o600 });

@@ -197,26 +197,45 @@ export class Agent {
     const systemPrompt = getFinalAnswerSystemPrompt();
     const userPrompt = buildFinalAnswerUserPrompt(query, taskOutputs, sourcesStr);
 
-    // Stream the answer, collecting chunks to return as the final string
+    // Stream the answer in real-time to the callback while collecting for return value
     const rawStream = callLlmStream(userPrompt, {
       systemPrompt,
       model: this.model,
     });
 
     const chunks: string[] = [];
-    for await (const chunk of rawStream) {
-      chunks.push(chunk);
-    }
 
-    // Pass collected chunks as a buffered async generator to the callback
     if (callbacks.onAnswerStream) {
-      const bufferedChunks = chunks;
-      const bufferedStream = async function* () {
-        for (const chunk of bufferedChunks) {
-          yield chunk;
+      // Broadcast chunks to the callback in real-time using an async queue
+      const pending: string[] = [];
+      let streamDone = false;
+      const notifiers: Array<() => void> = [];
+
+      const callbackStream = async function* () {
+        while (true) {
+          if (pending.length > 0) {
+            yield pending.shift()!;
+          } else if (streamDone) {
+            break;
+          } else {
+            await new Promise<void>((r) => { notifiers.push(r); });
+          }
         }
       };
-      callbacks.onAnswerStream(bufferedStream());
+
+      callbacks.onAnswerStream(callbackStream());
+
+      for await (const chunk of rawStream) {
+        chunks.push(chunk);
+        pending.push(chunk);
+        notifiers.splice(0).forEach((fn) => fn());
+      }
+      streamDone = true;
+      notifiers.splice(0).forEach((fn) => fn());
+    } else {
+      for await (const chunk of rawStream) {
+        chunks.push(chunk);
+      }
     }
 
     return chunks.join('');

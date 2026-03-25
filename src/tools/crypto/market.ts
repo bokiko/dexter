@@ -202,9 +202,9 @@ export const getGlobalCryptoData = new DynamicStructuredTool({
       markets: d.markets,
       total_market_cap_usd: d.total_market_cap?.usd,
       total_volume_24h_usd: d.total_volume?.usd,
-      btc_dominance: d.market_cap_percentage?.btc?.toFixed(2) + '%',
-      eth_dominance: d.market_cap_percentage?.eth?.toFixed(2) + '%',
-      market_cap_change_24h: d.market_cap_change_percentage_24h_usd?.toFixed(2) + '%',
+      btc_dominance: d.market_cap_percentage?.btc != null ? d.market_cap_percentage.btc.toFixed(2) + '%' : 'N/A',
+      eth_dominance: d.market_cap_percentage?.eth != null ? d.market_cap_percentage.eth.toFixed(2) + '%' : 'N/A',
+      market_cap_change_24h: d.market_cap_change_percentage_24h_usd != null ? d.market_cap_change_percentage_24h_usd.toFixed(2) + '%' : 'N/A',
     };
     return formatToolResult(result, [url]);
   },
@@ -228,12 +228,12 @@ export const getTopCryptoCoins = new DynamicStructuredTool({
       price_usd: c.current_price,
       market_cap: c.market_cap,
       volume_24h: c.total_volume,
-      price_change_1h: c.price_change_percentage_1h_in_currency?.toFixed(2) + '%',
-      price_change_24h: c.price_change_percentage_24h?.toFixed(2) + '%',
-      price_change_7d: c.price_change_percentage_7d_in_currency?.toFixed(2) + '%',
-      price_change_30d: c.price_change_percentage_30d_in_currency?.toFixed(2) + '%',
+      price_change_1h: c.price_change_percentage_1h_in_currency != null ? c.price_change_percentage_1h_in_currency.toFixed(2) + '%' : 'N/A',
+      price_change_24h: c.price_change_percentage_24h != null ? c.price_change_percentage_24h.toFixed(2) + '%' : 'N/A',
+      price_change_7d: c.price_change_percentage_7d_in_currency != null ? c.price_change_percentage_7d_in_currency.toFixed(2) + '%' : 'N/A',
+      price_change_30d: c.price_change_percentage_30d_in_currency != null ? c.price_change_percentage_30d_in_currency.toFixed(2) + '%' : 'N/A',
       ath: c.ath,
-      ath_change: c.ath_change_percentage?.toFixed(2) + '%',
+      ath_change: c.ath_change_percentage != null ? c.ath_change_percentage.toFixed(2) + '%' : 'N/A',
     })) || [];
     return formatToolResult({ coins, count: coins.length }, [url]);
   },
@@ -250,16 +250,24 @@ export const getCryptoFearGreed = new DynamicStructuredTool({
   func: async () => {
     const { data, url } = await getFearGreedIndex();
     const d = data as any;
+    if (!d.data?.length) {
+      return formatToolResult({ error: 'No data available' }, [url]);
+    }
+    const parseTimestamp = (ts: string | undefined): string => {
+      const ms = parseInt(ts ?? '') * 1000;
+      if (isNaN(ms)) return 'N/A';
+      return new Date(ms).toISOString();
+    };
     const result = {
       current: {
-        value: parseInt(d.data?.[0]?.value),
-        classification: d.data?.[0]?.value_classification,
-        timestamp: new Date(parseInt(d.data?.[0]?.timestamp) * 1000).toISOString(),
+        value: parseInt(d.data[0].value) || 0,
+        classification: d.data[0].value_classification,
+        timestamp: parseTimestamp(d.data[0].timestamp),
       },
-      history: d.data?.slice(0, 7).map((item: any) => ({
-        value: parseInt(item.value),
+      history: d.data.slice(0, 7).map((item: any) => ({
+        value: parseInt(item.value) || 0,
         classification: item.value_classification,
-        date: new Date(parseInt(item.timestamp) * 1000).toISOString().split('T')[0],
+        date: parseTimestamp(item.timestamp).split('T')[0],
       })),
       interpretation: {
         '0-24': 'Extreme Fear - potential buying opportunity',
@@ -287,7 +295,7 @@ export const getCryptoCategories = new DynamicStructuredTool({
       id: c.id,
       name: c.name,
       market_cap: c.market_cap,
-      market_cap_change_24h: c.market_cap_change_24h?.toFixed(2) + '%',
+      market_cap_change_24h: c.market_cap_change_24h != null ? c.market_cap_change_24h.toFixed(2) + '%' : 'N/A',
       volume_24h: c.volume_24h,
       top_3_coins: c.top_3_coins,
     })) || [];
