@@ -41,11 +41,13 @@ export class ToolExecutor {
   private readonly tools: StructuredToolInterface[];
   private readonly toolMap: Map<string, StructuredToolInterface>;
   private readonly contextManager: ToolContextManager;
+  private readonly toolDescriptions: string;
 
   constructor(options: ToolExecutorOptions) {
     this.tools = options.tools;
     this.toolMap = new Map(options.tools.map(t => [t.name, t]));
     this.contextManager = options.contextManager;
+    this.toolDescriptions = this.formatToolDescriptions();
   }
 
   /**
@@ -65,7 +67,7 @@ export class ToolExecutor {
       .map(e => e.value);
 
     const prompt = buildToolSelectionPrompt(task.description, tickers, periods);
-    const systemPrompt = getToolSelectionSystemPrompt(this.formatToolDescriptions());
+    const systemPrompt = getToolSelectionSystemPrompt(this.toolDescriptions);
 
     const response = await callLlm(prompt, {
       model: SMALL_MODEL,

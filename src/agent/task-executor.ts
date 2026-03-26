@@ -105,9 +105,10 @@ export class TaskExecutor {
    * Checks if there are pending tasks.
    */
   private hasPendingTasks(nodes: Map<string, TaskNode>): boolean {
-    return Array.from(nodes.values()).some(
-      n => n.status === 'pending' || n.status === 'ready' || n.status === 'running'
-    );
+    for (const n of nodes.values()) {
+      if (n.status === 'pending' || n.status === 'ready' || n.status === 'running') return true;
+    }
+    return false;
   }
 
   /**

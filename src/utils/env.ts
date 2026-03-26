@@ -107,7 +107,7 @@ export function saveApiKeyToEnv(apiKeyName: string, apiKeyValue: string): boolea
 
     return true;
   } catch (e) {
-    console.error(`Error saving API key to .env file: ${e}`);
+    console.error('Error saving API key to .env file:', e instanceof Error ? e.message : 'unknown error');
     return false;
   }
 }

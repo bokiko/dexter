@@ -91,7 +91,7 @@ export const TOOLS: StructuredToolInterface[] = [
   compareDefiProtocols,
   
   // === Web Search (optional) ===
-  ...(process.env.TAVILY_API_KEY ? [tavilySearch] : []),
+  tavilySearch,
 ];
 
 export {

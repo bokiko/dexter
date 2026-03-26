@@ -277,7 +277,7 @@ export class ToolContextManager {
         }
       })
     );
-    return results.filter((ctx): ctx is ContextData => ctx !== null);
+    return results.filter((ctx: ContextData | null): ctx is ContextData => ctx !== null);
   }
 
 }
