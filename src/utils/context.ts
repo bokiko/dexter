@@ -1,9 +1,19 @@
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { createHash } from 'crypto';
 import { DEFAULT_MODEL } from '../model/llm.js';
-import type { ToolSummary } from '../agent/schemas.js';
+
+/**
+ * Lightweight summary of a tool call result (kept in context during loop).
+ * Defined here to avoid a circular dependency with the agent layer.
+ */
+export interface ToolSummary {
+  id: string;           // Filepath pointer to full data on disk
+  toolName: string;
+  args: Record<string, unknown>;
+  summary: string;      // Deterministic description
+}
 
 interface ContextPointer {
   filepath: string;
@@ -76,11 +86,22 @@ export class ToolContextManager {
   }
 
   private generateFilename(toolName: string, args: Record<string, unknown>): string {
+    // Sanitize to strip any path separator characters before constructing filename
+    const safeName = toolName.replace(/[\\/]/g, '_');
     const argsHash = this.hashArgs(args);
-    const ticker = typeof args.ticker === 'string' ? args.ticker.toUpperCase() : null;
-    return ticker 
-      ? `${ticker}_${toolName}_${argsHash}.json`
-      : `${toolName}_${argsHash}.json`;
+    const rawTicker = typeof args.ticker === 'string' ? args.ticker : null;
+    const ticker = rawTicker ? rawTicker.replace(/[\\/]/g, '_').toUpperCase() : null;
+    const filename = ticker
+      ? `${ticker}_${safeName}_${argsHash}.json`
+      : `${safeName}_${argsHash}.json`;
+
+    // Verify the resolved path stays within contextDir (defence against traversal)
+    const resolvedDir = resolve(this.contextDir);
+    const resolvedPath = resolve(join(this.contextDir, filename));
+    if (!resolvedPath.startsWith(resolvedDir + '/') && resolvedPath !== resolvedDir) {
+      throw new Error(`Path traversal detected: generated filename escapes context directory`);
+    }
+    return filename;
   }
 
   /**
@@ -182,6 +203,9 @@ export class ToolContextManager {
 
     await writeFile(filepath, JSON.stringify(contextData, null, 2), { mode: 0o600 });
 
+    // Populate in-memory cache to avoid redundant disk reads (PERF-003)
+    this.contextCache.set(filepath, contextData);
+
     const pointer: ContextPointer = {
       filepath,
       filename,
@@ -228,11 +252,25 @@ export class ToolContextManager {
   }
 
   async loadContexts(filepaths: string[]): Promise<ContextData[]> {
+    const resolvedDir = resolve(this.contextDir);
     const results = await Promise.all(
       filepaths.map(async (filepath) => {
+        // SEC-002: Validate each filepath stays within the context directory
+        const resolvedPath = resolve(filepath);
+        if (!resolvedPath.startsWith(resolvedDir + '/') && resolvedPath !== resolvedDir) {
+          console.warn(`Warning: Rejected context file outside context directory: ${filepath}`);
+          return null;
+        }
+
+        // PERF-003: Check in-memory cache before hitting disk
+        const cached = this.contextCache.get(resolvedPath);
+        if (cached) return cached;
+
         try {
-          const content = await readFile(filepath, 'utf-8');
-          return JSON.parse(content) as ContextData;
+          const content = await readFile(resolvedPath, 'utf-8');
+          const parsed = JSON.parse(content) as ContextData;
+          this.contextCache.set(resolvedPath, parsed);
+          return parsed;
         } catch (e) {
           console.warn(`Warning: Failed to load context file ${filepath}: ${e}`);
           return null;

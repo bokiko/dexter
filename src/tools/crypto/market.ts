@@ -199,6 +199,7 @@ export const getGlobalCryptoData = new DynamicStructuredTool({
   func: async () => {
     const { data, url } = await getGlobalMarketData();
     const d = (data as any).data;
+    if (!d) return formatToolResult({ error: 'Unexpected response format' }, [url]);
     const result = {
       active_cryptocurrencies: d.active_cryptocurrencies,
       markets: d.markets,
@@ -320,7 +321,7 @@ export const getCryptoBySector = new DynamicStructuredTool({
       name: c.name,
       price_usd: c.current_price,
       market_cap: c.market_cap,
-      price_change_24h: c.price_change_percentage_24h?.toFixed(2) + '%',
+      price_change_24h: c.price_change_percentage_24h != null ? c.price_change_percentage_24h.toFixed(2) + '%' : 'N/A',
     })) || [];
     return formatToolResult({ category: input.category_id, coins, count: coins.length }, [url]);
   },

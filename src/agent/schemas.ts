@@ -82,16 +82,3 @@ export const SelectedContextsSchema = z.object({
 
 export type SelectedContextsOutput = z.infer<typeof SelectedContextsSchema>;
 
-// ============================================================================
-// Tool Summary Type (used by context manager)
-// ============================================================================
-
-/**
- * Lightweight summary of a tool call result (kept in context during loop)
- */
-export interface ToolSummary {
-  id: string;           // Filepath pointer to full data on disk
-  toolName: string;
-  args: Record<string, unknown>;
-  summary: string;      // Deterministic description
-}
