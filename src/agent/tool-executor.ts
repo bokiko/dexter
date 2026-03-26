@@ -102,7 +102,7 @@ export class ToolExecutor {
 
           const result = await tool.invoke(toolCall.args);
 
-          this.contextManager.saveContext(
+          await this.contextManager.saveContext(
             toolCall.tool,
             toolCall.args,
             result,

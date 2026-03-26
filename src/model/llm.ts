@@ -139,27 +139,23 @@ export async function* callLlmStream(
   const llm = getChatModel(model, true);
   const chain = cachedPromptTemplate.pipe(llm);
 
-  // Buffer chunks before yielding to prevent partial output on retry
   for (let attempt = 0; attempt < 3; attempt++) {
+    let chunksYielded = 0;
     try {
       const stream = await chain.stream({ prompt, systemPrompt: finalSystemPrompt });
-      const buffer: string[] = [];
-
       for await (const chunk of stream) {
         if (chunk && typeof chunk === 'object' && 'content' in chunk) {
           const content = chunk.content;
           if (content && typeof content === 'string') {
-            buffer.push(content);
+            chunksYielded++;
+            yield content;
           }
         }
       }
-
-      for (const chunk of buffer) {
-        yield chunk;
-      }
       return;
     } catch (e) {
-      if (attempt === 2) throw e;
+      // Only retry if no chunks were yielded yet; retrying after partial output would duplicate content
+      if (attempt === 2 || chunksYielded > 0) throw e;
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
     }
   }
