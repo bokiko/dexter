@@ -24,10 +24,12 @@ export const AnswerBox = React.memo(function AnswerBox({ stream, text, onStart, 
 
     let collected = text || '';
     let started = false;
-    
+    let cancelled = false;
+
     (async () => {
       try {
         for await (const chunk of stream) {
+          if (cancelled) break;
           if (!started && chunk.trim()) {
             started = true;
             onStartRef.current?.();
@@ -36,10 +38,18 @@ export const AnswerBox = React.memo(function AnswerBox({ stream, text, onStart, 
           setContent(collected);
         }
       } finally {
-        setIsStreaming(false);
-        onCompleteRef.current?.(collected);
+        if (!cancelled) {
+          setIsStreaming(false);
+          onCompleteRef.current?.(collected);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+      setIsStreaming(false);
+      stream.return?.(undefined);
+    };
   }, [stream, text]);
 
   return (

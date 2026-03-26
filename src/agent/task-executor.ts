@@ -243,7 +243,7 @@ export class TaskExecutor {
           ? `\nSource URLs: ${sourceUrls.join(', ')}` 
           : '';
         
-        parts.push(`Data from ${toolName} (${JSON.stringify(args)}):${sourceLine}\n${JSON.stringify(result)}`);
+        parts.push(`Data from ${toolName} (${JSON.stringify(args)}):${sourceLine}\n<tool_data>\n${JSON.stringify(result)}\n</tool_data>`);
       }
     }
 

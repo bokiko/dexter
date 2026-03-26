@@ -37,9 +37,11 @@ interface ContextData {
   result: unknown;
 }
 
+const CONTEXT_CACHE_MAX = 100;
+
 export class ToolContextManager {
   private contextDir: string;
-  public pointers: ContextPointer[] = [];
+  private pointersByQuery = new Map<string, ContextPointer[]>();
   private contextCache = new Map<string, ContextData>();
 
   constructor(contextDir: string = '.dexter/context') {
@@ -204,7 +206,8 @@ export class ToolContextManager {
     await writeFile(filepath, JSON.stringify(contextData, null, 2), { mode: 0o600 });
 
     // Populate in-memory cache to avoid redundant disk reads (PERF-003)
-    this.contextCache.set(filepath, contextData);
+    // Use resolve() so the key matches what loadContexts uses (BUG-004)
+    this.contextCache.set(resolve(filepath), contextData);
 
     const pointer: ContextPointer = {
       filepath,
@@ -217,7 +220,10 @@ export class ToolContextManager {
       sourceUrls,
     };
 
-    this.pointers.push(pointer);
+    const queryKey = queryId ?? '';
+    const bucket = this.pointersByQuery.get(queryKey) ?? [];
+    bucket.push(pointer);
+    this.pointersByQuery.set(queryKey, bucket);
 
     return filepath;
   }
@@ -244,11 +250,15 @@ export class ToolContextManager {
   }
 
   getAllPointers(): ContextPointer[] {
-    return [...this.pointers];
+    const all: ContextPointer[] = [];
+    for (const bucket of this.pointersByQuery.values()) {
+      all.push(...bucket);
+    }
+    return all;
   }
 
   getPointersForQuery(queryId: string): ContextPointer[] {
-    return this.pointers.filter(p => p.queryId === queryId);
+    return this.pointersByQuery.get(queryId) ?? [];
   }
 
   async loadContexts(filepaths: string[]): Promise<ContextData[]> {
