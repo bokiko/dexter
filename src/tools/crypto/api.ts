@@ -6,10 +6,8 @@
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
 const DEFILLAMA_BASE = 'https://api.llama.fi';
 
-export interface ApiResponse<T = unknown> {
-  data: T;
-  url: string;
-}
+import type { ApiResponse } from '../types.js';
+export type { ApiResponse };
 
 // Semaphore-based rate limiter: max 5 concurrent requests, 200ms minimum gap between starts
 const MAX_CONCURRENT = 5;

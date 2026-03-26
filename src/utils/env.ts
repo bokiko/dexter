@@ -5,13 +5,6 @@ import { clearModelCache } from '../model/llm.js';
 // Load .env on module import
 config({ quiet: true });
 
-// Map model IDs to their required API key environment variable names
-const MODEL_API_KEY_MAP: Record<string, string> = {
-  'gpt-5.2': 'OPENAI_API_KEY',
-  'claude-sonnet-4-5': 'ANTHROPIC_API_KEY',
-  'gemini-3': 'GOOGLE_API_KEY',
-};
-
 // Map API key names to user-friendly provider names
 const API_KEY_PROVIDER_NAMES: Record<string, string> = {
   OPENAI_API_KEY: 'OpenAI',
@@ -20,7 +13,9 @@ const API_KEY_PROVIDER_NAMES: Record<string, string> = {
 };
 
 export function getApiKeyName(modelId: string): string | undefined {
-  return MODEL_API_KEY_MAP[modelId];
+  if (modelId.startsWith('claude-')) return 'ANTHROPIC_API_KEY';
+  if (modelId.startsWith('gemini-')) return 'GOOGLE_API_KEY';
+  return 'OPENAI_API_KEY';
 }
 
 export function checkApiKeyExists(apiKeyName: string): boolean {

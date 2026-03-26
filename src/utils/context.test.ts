@@ -1,5 +1,5 @@
 import { test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdirSync, writeFileSync, existsSync, readdirSync, utimesSync } from 'fs';
+import { mkdirSync, writeFileSync, existsSync, utimesSync } from 'fs';
 import { join } from 'path';
 import { rmSync } from 'fs';
 import { ToolContextManager } from './context.js';
@@ -14,7 +14,7 @@ afterEach(() => {
   rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
-test('cleanupOldContexts removes files older than TTL', () => {
+test('cleanupOldContexts removes files older than TTL', async () => {
   // Create a stale JSON file (mtime set to 2 hours ago)
   const staleFile = join(TEST_DIR, 'stale.json');
   writeFileSync(staleFile, '{}');
@@ -27,7 +27,7 @@ test('cleanupOldContexts removes files older than TTL', () => {
 
   const mgr = new ToolContextManager(TEST_DIR);
   // Call cleanup with 1-hour TTL — stale should be gone, fresh should remain
-  mgr.cleanupOldContexts(1 * 60 * 60 * 1000);
+  await mgr.cleanupOldContexts(1 * 60 * 60 * 1000);
 
   expect(existsSync(staleFile)).toBe(false);
   expect(existsSync(freshFile)).toBe(true);

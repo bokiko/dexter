@@ -368,7 +368,9 @@ export function useAgentExecution({
         await agentRef.current.run(query, messageHistory, { callbacks, signal: abortController.signal });
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') {
-          // Execution was cancelled — clean up silently
+          setCurrentTurn(null);
+          setAnswerStream(null);
+          currentQueryRef.current = null;
           return;
         }
         setCurrentTurn(null);

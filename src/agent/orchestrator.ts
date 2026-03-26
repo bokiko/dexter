@@ -225,16 +225,25 @@ export class Agent {
 
       callbacks.onAnswerStream(callbackStream());
 
-      for await (const chunk of rawStream) {
-        chunks.push(chunk);
-        pending.push(chunk);
+      try {
+        for await (const chunk of rawStream) {
+          chunks.push(chunk);
+          pending.push(chunk);
+          notifiers.splice(0).forEach((fn) => fn());
+        }
+      } catch {
+        // stream error mid-way — retain partial content collected so far
+      } finally {
+        streamDone = true;
         notifiers.splice(0).forEach((fn) => fn());
       }
-      streamDone = true;
-      notifiers.splice(0).forEach((fn) => fn());
     } else {
-      for await (const chunk of rawStream) {
-        chunks.push(chunk);
+      try {
+        for await (const chunk of rawStream) {
+          chunks.push(chunk);
+        }
+      } catch {
+        // stream error mid-way — retain partial content collected so far
       }
     }
 

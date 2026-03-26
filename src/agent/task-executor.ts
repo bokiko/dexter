@@ -188,7 +188,7 @@ export class TaskExecutor {
     }
 
     if (task.taskType === 'reason') {
-      const contextData = await this.buildContextData(query, taskResults, plan);
+      const contextData = await this.buildContextData(query, task, taskResults, plan);
       
       const result = await this.executePhase.run({
         query,
@@ -213,18 +213,22 @@ export class TaskExecutor {
 
   /**
    * Builds context data string from previous task results and context manager.
+   * Only includes results from tasks that the given reason task depends on.
    */
   private async buildContextData(
     query: string,
+    task: Task,
     taskResults: Map<string, TaskResult>,
     plan: Plan
   ): Promise<string> {
     const parts: string[] = [];
 
-    for (const task of plan.tasks) {
-      const result = taskResults.get(task.id);
+    const dependsOn = new Set(task.dependsOn ?? []);
+    for (const planTask of plan.tasks) {
+      if (!dependsOn.has(planTask.id)) continue;
+      const result = taskResults.get(planTask.id);
       if (result?.output) {
-        parts.push(`Previous task "${task.description}":\n${result.output}`);
+        parts.push(`Previous task "${planTask.description}":\n${result.output}`);
       }
     }
 
@@ -243,7 +247,7 @@ export class TaskExecutor {
           ? `\nSource URLs: ${sourceUrls.join(', ')}` 
           : '';
         
-        parts.push(`Data from ${toolName} (${JSON.stringify(args)}):${sourceLine}\n${JSON.stringify(result)}`);
+        parts.push(`Data from ${toolName} (${JSON.stringify(args)}):${sourceLine}\n<tool_data>\n${JSON.stringify(result)}\n</tool_data>`);
       }
     }
 

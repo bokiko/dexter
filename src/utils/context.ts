@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
-import { writeFile, readFile } from 'fs/promises';
+import { existsSync, mkdirSync } from 'fs';
+import { writeFile, readFile, readdir, stat, unlink } from 'fs/promises';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
 import { DEFAULT_MODEL } from '../model/llm.js';
@@ -37,9 +37,11 @@ interface ContextData {
   result: unknown;
 }
 
+const CONTEXT_CACHE_MAX = 100;
+
 export class ToolContextManager {
   private contextDir: string;
-  public pointers: ContextPointer[] = [];
+  private pointersByQuery = new Map<string, ContextPointer[]>();
   private contextCache = new Map<string, ContextData>();
 
   constructor(contextDir: string = '.dexter/context') {
@@ -47,25 +49,24 @@ export class ToolContextManager {
     if (!existsSync(contextDir)) {
       mkdirSync(contextDir, { recursive: true, mode: 0o700 });
     }
-    this.cleanupOldContexts();
+    void this.cleanupOldContexts();
   }
 
   /**
    * Deletes context files older than the given TTL (default: 24 hours).
-   * Called at startup to prevent unbounded disk growth.
+   * Called at startup (fire-and-forget) to prevent unbounded disk growth.
    */
-  cleanupOldContexts(ttlMs: number = 24 * 60 * 60 * 1000): void {
-    if (!existsSync(this.contextDir)) return;
+  async cleanupOldContexts(ttlMs: number = 24 * 60 * 60 * 1000): Promise<void> {
     const now = Date.now();
     try {
-      const files = readdirSync(this.contextDir);
+      const files = await readdir(this.contextDir);
       for (const file of files) {
         if (!file.endsWith('.json')) continue;
         const filepath = join(this.contextDir, file);
         try {
-          const stat = statSync(filepath);
-          if (now - stat.mtimeMs > ttlMs) {
-            unlinkSync(filepath);
+          const fileStat = await stat(filepath);
+          if (now - fileStat.mtimeMs > ttlMs) {
+            await unlink(filepath);
           }
         } catch {
           // Ignore individual file errors
@@ -204,7 +205,12 @@ export class ToolContextManager {
     await writeFile(filepath, JSON.stringify(contextData, null, 2), { mode: 0o600 });
 
     // Populate in-memory cache to avoid redundant disk reads (PERF-003)
-    this.contextCache.set(filepath, contextData);
+    // Use resolve() so the key matches what loadContexts uses (BUG-004)
+    this.contextCache.set(resolve(filepath), contextData);
+    if (this.contextCache.size > CONTEXT_CACHE_MAX) {
+      const firstKey = this.contextCache.keys().next().value;
+      if (firstKey) this.contextCache.delete(firstKey);
+    }
 
     const pointer: ContextPointer = {
       filepath,
@@ -217,7 +223,10 @@ export class ToolContextManager {
       sourceUrls,
     };
 
-    this.pointers.push(pointer);
+    const queryKey = queryId ?? '';
+    const bucket = this.pointersByQuery.get(queryKey) ?? [];
+    bucket.push(pointer);
+    this.pointersByQuery.set(queryKey, bucket);
 
     return filepath;
   }
@@ -244,11 +253,15 @@ export class ToolContextManager {
   }
 
   getAllPointers(): ContextPointer[] {
-    return [...this.pointers];
+    const all: ContextPointer[] = [];
+    for (const bucket of this.pointersByQuery.values()) {
+      all.push(...bucket);
+    }
+    return all;
   }
 
   getPointersForQuery(queryId: string): ContextPointer[] {
-    return this.pointers.filter(p => p.queryId === queryId);
+    return this.pointersByQuery.get(queryId) ?? [];
   }
 
   async loadContexts(filepaths: string[]): Promise<ContextData[]> {
@@ -270,6 +283,10 @@ export class ToolContextManager {
           const content = await readFile(resolvedPath, 'utf-8');
           const parsed = JSON.parse(content) as ContextData;
           this.contextCache.set(resolvedPath, parsed);
+          if (this.contextCache.size > CONTEXT_CACHE_MAX) {
+            const firstKey = this.contextCache.keys().next().value;
+            if (firstKey) this.contextCache.delete(firstKey);
+          }
           return parsed;
         } catch (e) {
           console.warn(`Warning: Failed to load context file ${filepath}: ${e}`);
