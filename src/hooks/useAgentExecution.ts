@@ -388,6 +388,7 @@ export function useAgentExecution({
   const cancelExecution = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
+    currentQueryRef.current = null;
     setCurrentTurn(null);
     setAnswerStream(null);
     isProcessingRef.current = false;
