@@ -207,6 +207,10 @@ export class ToolContextManager {
     // Populate in-memory cache to avoid redundant disk reads (PERF-003)
     // Use resolve() so the key matches what loadContexts uses (BUG-004)
     this.contextCache.set(resolve(filepath), contextData);
+    if (this.contextCache.size > CONTEXT_CACHE_MAX) {
+      const firstKey = this.contextCache.keys().next().value;
+      if (firstKey) this.contextCache.delete(firstKey);
+    }
 
     const pointer: ContextPointer = {
       filepath,
@@ -279,6 +283,10 @@ export class ToolContextManager {
           const content = await readFile(resolvedPath, 'utf-8');
           const parsed = JSON.parse(content) as ContextData;
           this.contextCache.set(resolvedPath, parsed);
+          if (this.contextCache.size > CONTEXT_CACHE_MAX) {
+            const firstKey = this.contextCache.keys().next().value;
+            if (firstKey) this.contextCache.delete(firstKey);
+          }
           return parsed;
         } catch (e) {
           console.warn(`Warning: Failed to load context file ${filepath}: ${e}`);
