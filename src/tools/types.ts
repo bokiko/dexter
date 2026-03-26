@@ -1,3 +1,8 @@
+export interface ApiResponse<T = unknown> {
+  data: T;
+  url: string;
+}
+
 export interface ToolResult {
   data: unknown;
   sourceUrls?: string[];

@@ -1,14 +1,13 @@
+import { ApiResponse } from '../types.js';
+
 const BASE_URL = 'https://api.financialdatasets.ai';
 
-export interface ApiResponse {
-  data: Record<string, unknown>;
-  url: string;
-}
+export type { ApiResponse };
 
 export async function callApi(
   endpoint: string,
   params: Record<string, string | number | string[] | undefined>
-): Promise<ApiResponse> {
+): Promise<ApiResponse<Record<string, unknown>>> {
   // Read API key lazily at call time (after dotenv has loaded)
   const FINANCIAL_DATASETS_API_KEY = process.env.FINANCIAL_DATASETS_API_KEY;
   if (!FINANCIAL_DATASETS_API_KEY) {

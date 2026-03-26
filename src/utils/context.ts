@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
-import { writeFile, readFile } from 'fs/promises';
+import { existsSync, mkdirSync } from 'fs';
+import { writeFile, readFile, readdir, stat, unlink } from 'fs/promises';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
 import { DEFAULT_MODEL } from '../model/llm.js';
@@ -49,25 +49,24 @@ export class ToolContextManager {
     if (!existsSync(contextDir)) {
       mkdirSync(contextDir, { recursive: true, mode: 0o700 });
     }
-    this.cleanupOldContexts();
+    void this.cleanupOldContexts();
   }
 
   /**
    * Deletes context files older than the given TTL (default: 24 hours).
-   * Called at startup to prevent unbounded disk growth.
+   * Called at startup (fire-and-forget) to prevent unbounded disk growth.
    */
-  cleanupOldContexts(ttlMs: number = 24 * 60 * 60 * 1000): void {
-    if (!existsSync(this.contextDir)) return;
+  async cleanupOldContexts(ttlMs: number = 24 * 60 * 60 * 1000): Promise<void> {
     const now = Date.now();
     try {
-      const files = readdirSync(this.contextDir);
+      const files = await readdir(this.contextDir);
       for (const file of files) {
         if (!file.endsWith('.json')) continue;
         const filepath = join(this.contextDir, file);
         try {
-          const stat = statSync(filepath);
-          if (now - stat.mtimeMs > ttlMs) {
-            unlinkSync(filepath);
+          const fileStat = await stat(filepath);
+          if (now - fileStat.mtimeMs > ttlMs) {
+            await unlink(filepath);
           }
         } catch {
           // Ignore individual file errors
