@@ -29,42 +29,30 @@ export const getTopDefiProtocols = new DynamicStructuredTool({
   }),
   func: async (input) => {
     const { data, url } = await getDefiProtocols();
-    let protocols = data as any[];
-    
-    // Filter by chain if specified
-    if (input.chain) {
-      const chainLower = input.chain.toLowerCase();
-      protocols = protocols.filter((p: any) => 
-        p.chain?.toLowerCase() === chainLower || 
-        p.chains?.some((c: string) => c.toLowerCase() === chainLower)
-      );
-    }
-    
-    // Filter by category if specified
-    if (input.category) {
-      const catLower = input.category.toLowerCase();
-      protocols = protocols.filter((p: any) => 
-        p.category?.toLowerCase().includes(catLower)
-      );
-    }
-    
-    // Sort by TVL and take top N
-    protocols = protocols
+    const chainLower = input.chain?.toLowerCase();
+    const catLower = input.category?.toLowerCase();
+
+    // Chain filter → sort → slice → map in one pass to avoid holding intermediate large arrays
+    const result = (data as any[])
+      .filter((p: any) => {
+        if (chainLower && !(p.chain?.toLowerCase() === chainLower || p.chains?.some((c: string) => c.toLowerCase() === chainLower))) return false;
+        if (catLower && !p.category?.toLowerCase().includes(catLower)) return false;
+        return true;
+      })
       .sort((a: any, b: any) => (b.tvl || 0) - (a.tvl || 0))
-      .slice(0, input.limit);
-    
-    const result = protocols.map((p: any) => ({
-      name: p.name,
-      symbol: p.symbol,
-      tvl: p.tvl,
-      tvl_change_1d: p.change_1d != null ? p.change_1d.toFixed(2) + '%' : 'N/A',
-      tvl_change_7d: p.change_7d != null ? p.change_7d.toFixed(2) + '%' : 'N/A',
-      tvl_change_1m: p.change_1m != null ? p.change_1m.toFixed(2) + '%' : 'N/A',
-      category: p.category,
-      chains: p.chains?.slice(0, 5),
-      slug: p.slug,
-    }));
-    
+      .slice(0, input.limit)
+      .map((p: any) => ({
+        name: p.name,
+        symbol: p.symbol,
+        tvl: p.tvl,
+        tvl_change_1d: p.change_1d != null ? p.change_1d.toFixed(2) + '%' : 'N/A',
+        tvl_change_7d: p.change_7d != null ? p.change_7d.toFixed(2) + '%' : 'N/A',
+        tvl_change_1m: p.change_1m != null ? p.change_1m.toFixed(2) + '%' : 'N/A',
+        category: p.category,
+        chains: p.chains?.slice(0, 5),
+        slug: p.slug,
+      }));
+
     return formatToolResult({ protocols: result, count: result.length }, [url]);
   },
 });
@@ -189,49 +177,34 @@ export const getDefiYields = new DynamicStructuredTool({
   }),
   func: async (input) => {
     const { data, url } = await getYieldPools();
-    let pools = (data as any).data || [];
-    
-    // Filter by chain
-    if (input.chain) {
-      const chainLower = input.chain.toLowerCase();
-      pools = pools.filter((p: any) => p.chain?.toLowerCase() === chainLower);
-    }
-    
-    // Filter by project
-    if (input.project) {
-      const projLower = input.project.toLowerCase();
-      pools = pools.filter((p: any) => p.project?.toLowerCase().includes(projLower));
-    }
-    
-    // Filter by TVL
-    if (input.min_tvl) {
-      const minTvl = input.min_tvl;
-      pools = pools.filter((p: any) => p.tvlUsd >= minTvl);
-    }
-    
-    // Filter stablecoin only
-    if (input.stablecoin_only) {
-      pools = pools.filter((p: any) => p.stablecoin === true);
-    }
-    
-    // Sort by APY and take top N
-    pools = pools
+    const chainLower = input.chain?.toLowerCase();
+    const projLower = input.project?.toLowerCase();
+    const minTvl = input.min_tvl;
+
+    // Chain filter → sort → slice → map in one pass to avoid holding intermediate large arrays
+    const result = ((data as any).data || [])
+      .filter((p: any) => {
+        if (chainLower && p.chain?.toLowerCase() !== chainLower) return false;
+        if (projLower && !p.project?.toLowerCase().includes(projLower)) return false;
+        if (minTvl != null && p.tvlUsd < minTvl) return false;
+        if (input.stablecoin_only && p.stablecoin !== true) return false;
+        return true;
+      })
       .sort((a: any, b: any) => (b.apy || 0) - (a.apy || 0))
-      .slice(0, input.limit);
-    
-    const result = pools.map((p: any) => ({
-      pool: p.pool,
-      symbol: p.symbol,
-      project: p.project,
-      chain: p.chain,
-      tvl_usd: p.tvlUsd,
-      apy: p.apy != null ? p.apy.toFixed(2) + '%' : 'N/A',
-      apy_base: p.apyBase != null ? p.apyBase.toFixed(2) + '%' : 'N/A',
-      apy_reward: p.apyReward != null ? p.apyReward.toFixed(2) + '%' : 'N/A',
-      stablecoin: p.stablecoin,
-      il_risk: p.ilRisk,
-    }));
-    
+      .slice(0, input.limit)
+      .map((p: any) => ({
+        pool: p.pool,
+        symbol: p.symbol,
+        project: p.project,
+        chain: p.chain,
+        tvl_usd: p.tvlUsd,
+        apy: p.apy != null ? p.apy.toFixed(2) + '%' : 'N/A',
+        apy_base: p.apyBase != null ? p.apyBase.toFixed(2) + '%' : 'N/A',
+        apy_reward: p.apyReward != null ? p.apyReward.toFixed(2) + '%' : 'N/A',
+        stablecoin: p.stablecoin,
+        il_risk: p.ilRisk,
+      }));
+
     return formatToolResult({ pools: result, count: result.length }, [url]);
   },
 });

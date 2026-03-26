@@ -177,7 +177,7 @@ export const getCryptoPriceHistory = new DynamicStructuredTool({
       data_points: prices.length,
       first_price: prices[0] ? { date: new Date(prices[0][0]).toISOString(), price: prices[0][1] } : null,
       last_price: prices[prices.length - 1] ? { date: new Date(prices[prices.length - 1][0]).toISOString(), price: prices[prices.length - 1][1] } : null,
-      price_change: prices.length >= 2 ? ((prices[prices.length - 1][1] - prices[0][1]) / prices[0][1] * 100).toFixed(2) + '%' : null,
+      price_change: prices.length >= 2 && prices[0][1] > 0 ? ((prices[prices.length - 1][1] - prices[0][1]) / prices[0][1] * 100).toFixed(2) + '%' : null,
       // Sample every Nth point for reasonable output size
       sampled_prices: prices.filter((_: any, i: number) => i % Math.ceil(prices.length / 20) === 0).map((p: number[]) => ({
         date: new Date(p[0]).toISOString(),
@@ -199,6 +199,7 @@ export const getGlobalCryptoData = new DynamicStructuredTool({
   func: async () => {
     const { data, url } = await getGlobalMarketData();
     const d = (data as any).data;
+    if (!d) return formatToolResult({ error: 'Unexpected response format' }, [url]);
     const result = {
       active_cryptocurrencies: d.active_cryptocurrencies,
       markets: d.markets,
@@ -320,7 +321,7 @@ export const getCryptoBySector = new DynamicStructuredTool({
       name: c.name,
       price_usd: c.current_price,
       market_cap: c.market_cap,
-      price_change_24h: c.price_change_percentage_24h?.toFixed(2) + '%',
+      price_change_24h: c.price_change_percentage_24h != null ? c.price_change_percentage_24h.toFixed(2) + '%' : 'N/A',
     })) || [];
     return formatToolResult({ category: input.category_id, coins, count: coins.length }, [url]);
   },

@@ -11,32 +11,34 @@ export interface ApiResponse<T = unknown> {
   url: string;
 }
 
-// Simple rate limiter: max 5 concurrent requests, 200ms minimum gap between starts
+// Semaphore-based rate limiter: max 5 concurrent requests, 200ms minimum gap between starts
 const MAX_CONCURRENT = 5;
 let activeRequests = 0;
 let lastRequestTime = 0;
 const waitQueue: Array<() => void> = [];
 
-function processQueue() {
-  while (waitQueue.length > 0 && activeRequests < MAX_CONCURRENT) {
-    const next = waitQueue.shift()!;
-    next();
-  }
-}
-
 async function acquireSlot(): Promise<void> {
-  const gap = 200 - (Date.now() - lastRequestTime);
-  if (gap > 0) await new Promise((r) => setTimeout(r, gap));
+  // Atomically reserve a slot or queue before any async boundary to prevent race conditions
   if (activeRequests >= MAX_CONCURRENT) {
     await new Promise<void>((r) => waitQueue.push(r));
+    // Slot has been transferred to us by releaseSlot; activeRequests unchanged
+  } else {
+    activeRequests++;
   }
-  activeRequests++;
+  // Enforce 200ms minimum gap between request starts
+  const gap = 200 - (Date.now() - lastRequestTime);
+  if (gap > 0) await new Promise((r) => setTimeout(r, gap));
   lastRequestTime = Date.now();
 }
 
-function releaseSlot() {
-  activeRequests--;
-  processQueue();
+function releaseSlot(): void {
+  if (waitQueue.length > 0) {
+    // Transfer slot directly to the next waiter (don't decrement + re-increment)
+    const next = waitQueue.shift()!;
+    next();
+  } else {
+    activeRequests--;
+  }
 }
 
 /**
@@ -240,8 +242,12 @@ const responseCache = new Map<string, CacheEntry<unknown>>();
 
 async function fetchJsonCached<T>(url: string): Promise<ApiResponse<T>> {
   const cached = responseCache.get(url);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.data as ApiResponse<T>;
+  if (cached) {
+    if (Date.now() < cached.expiresAt) {
+      return cached.data as ApiResponse<T>;
+    }
+    // Delete stale entry to prevent unbounded memory growth (PERF-004)
+    responseCache.delete(url);
   }
   const result = await fetchJson<T>(url);
   responseCache.set(url, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
